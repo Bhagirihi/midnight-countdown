@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts } from '../lib/theme';
-import { todayISO } from '../lib/dates';
+import { daysInMonth, parseDate, todayISO } from '../lib/dates';
 import {
   WIZARD_PRESETS, wizardDateFromDate, wizardDateFromDays, wizardPreset,
   type WizardDraft, type WizardPreset,
@@ -34,10 +34,39 @@ export default function FirstEventWizard({
   const [notifStatus, setNotifStatus] = useState('');
   const [locStatus, setLocStatus] = useState('');
   const [variant, setVariant] = useState<WidgetVariant>('medium');
+  // In-app calendar picker for Date mode — pure JS, no native
+  // date-picker dependency, so it works in Expo Go too. Opening it
+  // jumps to the already-chosen date's month, otherwise this month.
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calYear, setCalYear] = useState(() => Number(today.slice(0, 4)));
+  const [calMonth, setCalMonth] = useState(() => Number(today.slice(5, 7)));
 
   const computed = mode === 'days'
     ? wizardDateFromDays(today, daysText)
     : wizardDateFromDate(dateText);
+
+  // Switching mode or editing the input clears a stale error from
+  // the other mode — previously a date-mode error stayed on screen
+  // after switching to a perfectly valid days value (screenshot bug).
+  const switchMode = (m: 'date' | 'days') => { setMode(m); setError(''); };
+  const openCalendar = () => {
+    const parsed = parseDate(dateText);
+    if (parsed) { setCalYear(parsed.year); setCalMonth(parsed.month); }
+    else { setCalYear(Number(today.slice(0, 4))); setCalMonth(Number(today.slice(5, 7))); }
+    setShowCalendar(true);
+  };
+  const shiftCalendarMonth = (delta: number) => {
+    let y = calYear; let m = calMonth + delta;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    setCalYear(y); setCalMonth(m);
+  };
+  const pickCalendarDay = (day: number) => {
+    const iso = `${calYear}-${String(calMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    setDateText(iso);
+    setError('');
+    setShowCalendar(false);
+  };
 
   const pickPreset = (p: WizardPreset) => {
     setPreset(p);
@@ -81,10 +110,23 @@ export default function FirstEventWizard({
           <>
             <Text style={styles.heading}>What&apos;s your special day?</Text>
             <Text style={styles.body}>Pick one — you can change everything about it later in the full editor.</Text>
-            {WIZARD_PRESETS.map((p) => (
+            {/* 2-column grid instead of the old full-width list: the
+                8 presets fill the screen width in 4 rows, so Step 1
+                fits on one screen instead of scrolling past 9 rows.
+                The manual escape hatch stays a full-width row below. */}
+            <View style={styles.grid}>
+              {WIZARD_PRESETS.filter((p) => p.id !== 'manual').map((p) => (
+                <Pressable key={p.id} style={styles.tile} onPress={() => pickPreset(p)}>
+                  <Text style={styles.tileSticker}>{p.sticker}</Text>
+                  <Text style={styles.tileText}>{p.label}</Text>
+                  <Text style={styles.tileHint}>{p.repeat === 'yearly' ? 'Repeats yearly' : 'One-time'}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {WIZARD_PRESETS.filter((p) => p.id === 'manual').map((p) => (
               <Pressable key={p.id} style={styles.row} onPress={() => pickPreset(p)}>
-                <Text style={styles.rowText}>{p.sticker ? `${p.sticker} ` : ''}{p.label}</Text>
-                <Text style={styles.rowHint}>{p.id === 'manual' ? 'Custom title, date & category' : p.repeat === 'yearly' ? 'Repeats yearly' : 'One-time'}</Text>
+                <Text style={styles.rowText}>{p.label}</Text>
+                <Text style={styles.rowHint}>Custom title, date &amp; category</Text>
               </Pressable>
             ))}
           </>
@@ -113,32 +155,91 @@ export default function FirstEventWizard({
             <Text style={styles.heading}>When is it?</Text>
             <Text style={styles.body}>For “{title.trim() || preset.label}”. Pick a date, or say how many days away it is.</Text>
             <View style={styles.chipRow}>
-              <Pressable onPress={() => setMode('date')} style={[styles.chip, mode === 'date' && styles.chipOn]}>
+              <Pressable onPress={() => switchMode('date')} style={[styles.chip, mode === 'date' && styles.chipOn]}>
                 <Text style={[styles.chipText, mode === 'date' && styles.chipTextOn]}>Date selection</Text>
               </Pressable>
-              <Pressable onPress={() => setMode('days')} style={[styles.chip, mode === 'days' && styles.chipOn]}>
+              <Pressable onPress={() => switchMode('days')} style={[styles.chip, mode === 'days' && styles.chipOn]}>
                 <Text style={[styles.chipText, mode === 'days' && styles.chipTextOn]}>Days selection</Text>
               </Pressable>
             </View>
             {mode === 'date' ? (
-              <TextInput
-                style={styles.input}
-                value={dateText}
-                onChangeText={setDateText}
-                placeholder="2026-12-25"
-                placeholderTextColor={colors.onSurfaceVariant}
-                autoCapitalize="none"
-              />
+              <>
+                <Pressable style={styles.input} onPress={openCalendar}>
+                  <Text style={[styles.inputText, !dateText && styles.inputPlaceholder]}>
+                    {dateText || 'Pick a date — tap to open calendar'}
+                  </Text>
+                </Pressable>
+                {showCalendar ? (
+                  <View style={styles.calCard}>
+                    <View style={styles.calHeader}>
+                      <Pressable onPress={() => shiftCalendarMonth(-1)} hitSlop={10}>
+                        <Text style={styles.calNav}>‹</Text>
+                      </Pressable>
+                      <Text style={styles.calTitle}>
+                        {new Date(calYear, calMonth - 1, 1).toLocaleString('en', { month: 'long' })} {calYear}
+                      </Text>
+                      <Pressable onPress={() => shiftCalendarMonth(1)} hitSlop={10}>
+                        <Text style={styles.calNav}>›</Text>
+                      </Pressable>
+                    </View>
+                    <View style={styles.calGrid}>
+                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                        <Text key={d} style={styles.calWeekday}>{d}</Text>
+                      ))}
+                      {Array.from({ length: new Date(calYear, calMonth - 1, 1).getDay() }).map((_, i) => (
+                        <View key={`blank-${i}`} style={styles.calCell} />
+                      ))}
+                      {Array.from({ length: daysInMonth(calYear, calMonth) }).map((_, i) => {
+                        const day = i + 1;
+                        const iso = `${calYear}-${String(calMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                        const selected = dateText === iso;
+                        const isToday = today === iso;
+                        return (
+                          <Pressable
+                            key={day}
+                            style={[styles.calCell, selected && styles.calCellOn, isToday && !selected && styles.calCellToday]}
+                            onPress={() => pickCalendarDay(day)}
+                          >
+                            <Text style={[styles.calDay, selected && styles.calDayOn]}>{day}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <Pressable style={styles.secondaryBtn} onPress={() => setShowCalendar(false)}>
+                      <Text style={styles.secondaryBtnText}>Close calendar</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+                {computed.dateISO ? (
+                  <Text style={styles.body}>Selected: {computed.dateISO}.</Text>
+                ) : (
+                  <Text style={styles.body}>Tap the field above and pick a day from the calendar — no typing a date.</Text>
+                )}
+              </>
             ) : (
               <>
                 <TextInput
                   style={styles.input}
                   value={daysText}
-                  onChangeText={setDaysText}
+                  onChangeText={(t) => { setDaysText(t); setError(''); }}
                   placeholder="30"
                   placeholderTextColor={colors.onSurfaceVariant}
                   keyboardType="number-pad"
                 />
+                <Text style={styles.body}>Or tap a suggestion:</Text>
+                <View style={styles.chipRowWrap}>
+                  {[7, 30, 90, 180, 365].map((n) => (
+                    <Pressable
+                      key={n}
+                      onPress={() => { setDaysText(String(n)); setError(''); }}
+                      style={[styles.chip, daysText.trim() === String(n) && styles.chipOn]}
+                    >
+                      <Text style={[styles.chipText, daysText.trim() === String(n) && styles.chipTextOn]}>
+                        {n === 365 ? '1 year' : `${n} days`}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
                 <Text style={styles.body}>
                   {computed.dateISO
                     ? `In ${daysText.trim()} days = ${computed.dateISO}.`
@@ -231,11 +332,30 @@ const styles = StyleSheet.create({
   heading: { fontFamily: fonts.grotesk, fontSize: 28, color: colors.onSurface, marginTop: 16 },
   body: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurface, marginTop: 10, lineHeight: 21 },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 16, marginTop: 14 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
+  tile: { width: '48%', flexGrow: 1, backgroundColor: colors.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  tileSticker: { fontSize: 26, marginBottom: 6 },
+  tileText: { fontFamily: fonts.jakartaBold, fontSize: 14, color: colors.onSurface, textAlign: 'center' },
+  tileHint: { fontFamily: fonts.jakartaMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 4, textAlign: 'center' },
   row: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginTop: 10, borderWidth: 1, borderColor: colors.border },
   rowOn: { borderColor: colors.primary },
   rowText: { fontFamily: fonts.jakartaBold, fontSize: 15, color: colors.onSurface },
   rowHint: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4, lineHeight: 18 },
+  inputText: { color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 16 },
+  inputPlaceholder: { color: colors.onSurfaceVariant },
   chipRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  chipRowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  calCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 12, marginTop: 12 },
+  calHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  calNav: { fontFamily: fonts.jakartaBold, fontSize: 24, color: colors.onSurface, paddingHorizontal: 8 },
+  calTitle: { fontFamily: fonts.jakartaBold, fontSize: 15, color: colors.onSurface },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calWeekday: { width: '14.28%', textAlign: 'center', fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.onSurfaceVariant, paddingVertical: 4 },
+  calCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  calCellOn: { backgroundColor: colors.primary },
+  calCellToday: { borderWidth: 1, borderColor: colors.primary },
+  calDay: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurface },
+  calDayOn: { fontFamily: fonts.jakartaBold, color: colors.background },
   chip: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.surface },
   chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 14 },

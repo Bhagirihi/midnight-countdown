@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../lib/theme';
 import { countdownInfo, milestones, todayISO, turningInfo } from '../lib/dates';
@@ -29,7 +29,8 @@ import FirstEventWizard from './FirstEventWizard';
 // De-congested navigation: only Home + Profile as bottom tabs. Social
 // (Recommended Events) and Widgets were RELOCATED into Profile >
 // Discover — not removed — and open as full sub-views with a back
-// button. Add Event is never buried: a header button AND a FAB.
+// button. Add Event is never buried: a single floating + button,
+// always on top of the list, plus the empty-state buttons.
 type Tab = 'home' | 'profile';
 type Filter = 'all' | 'upcoming' | 'counting' | 'repeats';
 type ViewState = { kind: 'list' } | { kind: 'editor'; event: CountdownEvent | null } | { kind: 'detail'; id: string } | { kind: 'contacts' } | { kind: 'calendar' } | { kind: 'social' } | { kind: 'widgets' };
@@ -144,6 +145,27 @@ export default function Home({
     await saveGiftPlans(list);
   };
 
+
+  const insets = useSafeAreaInsets();
+
+  // Shared event card, used by both the bucket grid and the filtered
+  // grid — one card definition, so a change lands everywhere.
+  const renderCard = ({ e, info }: { e: CountdownEvent; info: ReturnType<typeof countdownInfo> }) => {
+    const turning = turningInfo(e.dateISO, e.category, e.repeat, today);
+    return (
+      <Pressable key={e.id} onPress={() => setView({ kind: 'detail', id: e.id })} style={[styles.card, effectBorder(e.effect, e.color)]}>
+        <View style={styles.cardRow}>
+          <Ionicons name={e.icon as never} size={20} color={e.color} />
+          {e.sticker ? <Text style={styles.sticker}>{e.sticker}</Text> : null}
+          <Text style={styles.cardCategory} numberOfLines={1}>{e.category.toUpperCase()}{e.repeat !== 'none' ? ` · ${e.repeat}` : ''}</Text>
+        </View>
+        <Text style={[styles.cardBig, { fontFamily: FONT_FAMILY[e.font] ?? fonts.grotesk }]}>{info.label}</Text>
+        <Text style={styles.cardTitle} numberOfLines={2}>{e.title}</Text>
+        {turning ? <Text style={styles.cardBanner}>🎉 {turning.label}</Text> : null}
+        <Text style={styles.cardMeta}>{e.type === 'countup' ? `Since ${e.dateISO}` : info.targetISO}{info.isToday ? ' · Today!' : ''}</Text>
+      </Pressable>
+    );
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -392,15 +414,21 @@ export default function Home({
   return (
     <SafeAreaView style={styles.wrap} edges={['top', 'bottom']}>
       {tab === 'home' ? (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
           <Text style={styles.greeting}>MIDNIGHT COUNTDOWN</Text>
-          <Text style={styles.heading}>Your countdowns</Text>
+          {/* Settings gear was missing from Home: settings live in the
+              Profile tab, but there was no visible way to reach them
+              from here. The gear opens Profile directly. */}
+          <View style={styles.headerRow}>
+            <Text style={[styles.heading, { flex: 1 }]}>Your countdowns</Text>
+            <Pressable style={styles.gearBtn} onPress={() => { setTab('profile'); setView({ kind: 'list' }); }} hitSlop={8}>
+              <Ionicons name="settings-outline" size={24} color={colors.onSurface} />
+            </Pressable>
+          </View>
           <Text style={styles.meta}>{authLabel} · {events.length} event{events.length === 1 ? '' : 's'} · offline, on this device</Text>
-          {/* Add Event is unmissable by design: header button + FAB.
-              It is never buried in a menu or only in an empty state. */}
-          <Pressable style={styles.primaryBtn} onPress={() => setView({ kind: 'editor', event: null })}>
-            <Text style={styles.primaryBtnText}>+ Add event</Text>
-          </Pressable>
+          {/* The big header "+ Add event" button is gone — the floating
+              button below is now the single way to add, so the list
+              itself gets the freed vertical space. */}
 
           <TextInput
             style={styles.search}
@@ -456,42 +484,12 @@ export default function Home({
               ] as const).map((bucket) => bucket.items.length === 0 ? null : (
                 <View key={bucket.title}>
                   <Text style={styles.bucketTitle}>{bucket.title}</Text>
-                  {bucket.items.map(({ e, info }) => {
-                    const turning = turningInfo(e.dateISO, e.category, e.repeat, today);
-                    return (
-                      <Pressable key={e.id} onPress={() => setView({ kind: 'detail', id: e.id })} style={[styles.card, effectBorder(e.effect, e.color)]}>
-                        <View style={styles.cardRow}>
-                          <Ionicons name={e.icon as never} size={24} color={e.color} />
-                          {e.sticker ? <Text style={styles.sticker}>{e.sticker}</Text> : null}
-                          <Text style={styles.cardCategory}>{e.category.toUpperCase()}{e.repeat !== 'none' ? ` · ${e.repeat}` : ''}</Text>
-                        </View>
-                        <Text style={[styles.cardBig, { fontFamily: FONT_FAMILY[e.font] ?? fonts.grotesk }]}>{info.label}</Text>
-                        <Text style={styles.cardTitle}>{e.title}</Text>
-                        {turning ? <Text style={styles.cardBanner}>🎉 {turning.label}</Text> : null}
-                        <Text style={styles.cardMeta}>{e.type === 'countup' ? `Since ${e.dateISO}` : info.targetISO}{info.isToday ? ' · Today!' : ''}</Text>
-                      </Pressable>
-                    );
-                  })}
+                  <View style={styles.grid}>{bucket.items.map(renderCard)}</View>
                 </View>
               ))}
             </>
           ) : (
-            filtered.map(({ e, info }) => {
-              const turning = turningInfo(e.dateISO, e.category, e.repeat, today);
-              return (
-                <Pressable key={e.id} onPress={() => setView({ kind: 'detail', id: e.id })} style={[styles.card, effectBorder(e.effect, e.color)]}>
-                  <View style={styles.cardRow}>
-                    <Ionicons name={e.icon as never} size={24} color={e.color} />
-                    {e.sticker ? <Text style={styles.sticker}>{e.sticker}</Text> : null}
-                    <Text style={styles.cardCategory}>{e.category.toUpperCase()}{e.repeat !== 'none' ? ` · ${e.repeat}` : ''}</Text>
-                  </View>
-                  <Text style={[styles.cardBig, { fontFamily: FONT_FAMILY[e.font] ?? fonts.grotesk }]}>{info.label}</Text>
-                  <Text style={styles.cardTitle}>{e.title}</Text>
-                  {turning ? <Text style={styles.cardBanner}>🎉 {turning.label}</Text> : null}
-                  <Text style={styles.cardMeta}>{e.type === 'countup' ? `Since ${e.dateISO}` : info.targetISO}{info.isToday ? ' · Today!' : ''}</Text>
-                </Pressable>
-              );
-            })
+            <View style={styles.grid}>{filtered.map(renderCard)}</View>
           )}
 
         </ScrollView>
@@ -512,19 +510,6 @@ export default function Home({
         />
       )}
 
-      {/* Add Event button: rendered in normal flow ABOVE the tab bar, not
-          absolutely positioned over it. The old absolute FAB (bottom: 76)
-          was painted under the tab bar on devices with a larger bottom
-          inset, so its bottom was cut off. This row can never be cut:
-          it takes its own height in the layout, above the tab bar. */}
-      {tab === 'home' && view.kind === 'list' ? (
-        <View style={styles.fabRow}>
-          <Pressable style={styles.fab} onPress={() => setView({ kind: 'editor', event: null })}>
-            <Text style={styles.fabText}>+</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
       <View style={styles.tabBar}>
         {([
           { key: 'home', label: 'Home', icon: 'home' },
@@ -536,6 +521,20 @@ export default function Home({
           </Pressable>
         ))}
       </View>
+
+      {/* True floating Add button: rendered AFTER the tab bar so it
+          paints on top of it, absolutely positioned above it. Bottom
+          = bottom inset + tab-bar height (~52) + 16 gap, so it can
+          never be painted under the tab bar (the old bottom: 76 bug)
+          and the list scrolls underneath it. */}
+      {tab === 'home' && view.kind === 'list' ? (
+        <Pressable
+          style={[styles.fab, { bottom: insets.bottom + 68, right: 16 }]}
+          onPress={() => setView({ kind: 'editor', event: null })}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -544,6 +543,8 @@ const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: colors.background },
   loading: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface, padding: 16 },
   greeting: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.primary, letterSpacing: 1.4 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  gearBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   heading: { fontFamily: fonts.grotesk, fontSize: 28, color: colors.onSurface, marginTop: 4 },
   meta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4 },
   search: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 15, marginTop: 14 },
@@ -555,14 +556,15 @@ const styles = StyleSheet.create({
   empty: { backgroundColor: colors.surface, borderRadius: 20, padding: 18, marginTop: 16 },
   emptyText: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface, lineHeight: 21 },
   hint: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurfaceVariant, marginTop: 16, lineHeight: 20 },
-  card: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, marginTop: 12 },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sticker: { fontSize: 20 },
-  cardCategory: { fontFamily: fonts.jakartaBold, fontSize: 11, color: colors.onSurfaceVariant, letterSpacing: 1.2 },
-  cardBig: { fontSize: 40, color: colors.onSurface, marginTop: 6 },
-  cardTitle: { fontFamily: fonts.jakartaBold, fontSize: 17, color: colors.onSurface, marginTop: 2 },
-  cardMeta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4 },
-  cardBanner: { fontFamily: fonts.jakartaBold, fontSize: 13, color: colors.accent, marginTop: 4 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
+  card: { width: '48%', flexGrow: 1, backgroundColor: colors.surface, borderRadius: 20, padding: 12, marginTop: 12 },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  sticker: { fontSize: 16 },
+  cardCategory: { fontFamily: fonts.jakartaBold, fontSize: 10, color: colors.onSurfaceVariant, letterSpacing: 1, flexShrink: 1 },
+  cardBig: { fontSize: 28, color: colors.onSurface, marginTop: 6 },
+  cardTitle: { fontFamily: fonts.jakartaBold, fontSize: 14, color: colors.onSurface, marginTop: 2, lineHeight: 19 },
+  cardMeta: { fontFamily: fonts.jakartaMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 4 },
+  cardBanner: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.accent, marginTop: 4 },
   bucketTitle: { fontFamily: fonts.grotesk, fontSize: 18, color: colors.onSurface, marginTop: 20 },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 15 },
@@ -570,8 +572,8 @@ const styles = StyleSheet.create({
   tabBtn: { flex: 1, alignItems: 'center', gap: 2 },
   tabLabel: { fontFamily: fonts.jakartaMedium, fontSize: 11, color: colors.onSurfaceVariant },
   tabLabelOn: { color: colors.primary, fontFamily: fonts.jakartaBold },
-  fabRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: colors.background },
   fab: {
+    position: 'absolute', zIndex: 10,
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
     shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 24, shadowOffset: { width: 0, height: 8 }, elevation: 6,
