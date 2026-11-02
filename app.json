@@ -3,7 +3,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0F0F11",
-        "foregroundImage": "./assets/icon.png"
+        "foregroundImage": "./assets/adaptive-icon.png"
       },
       "package": "com.midnightcountdown.app"
     },
@@ -110,7 +110,7 @@
     "version": "1.0.0",
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/favicon.png"
     }
   }
 }

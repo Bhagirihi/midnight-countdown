@@ -417,13 +417,13 @@ export default function Home({
       {tab === 'home' ? (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
           <Text style={styles.greeting}>MIDNIGHT COUNTDOWN</Text>
-          {/* Settings gear was missing from Home: settings live in the
-              Profile tab, but there was no visible way to reach them
-              from here. The gear opens Profile directly. */}
+          {/* Dashboard top shows a Profile icon (not the settings gear):
+              tapping it opens the Profile tab. Settings still has its
+              own footer tab, so nothing is lost. */}
           <View style={styles.headerRow}>
             <Text style={[styles.heading, { flex: 1 }]}>Your countdowns</Text>
-            <Pressable style={styles.gearBtn} onPress={() => { setTab('settings'); setView({ kind: 'list' }); }} hitSlop={8}>
-              <Ionicons name="settings-outline" size={24} color={colors.onSurface} />
+            <Pressable style={styles.gearBtn} onPress={() => { setTab('profile'); setView({ kind: 'list' }); }} hitSlop={8}>
+              <Ionicons name="person-circle-outline" size={28} color={colors.onSurface} />
             </Pressable>
           </View>
           <Text style={styles.meta}>{authLabel} · {events.length} event{events.length === 1 ? '' : 's'} · offline, on this device</Text>
