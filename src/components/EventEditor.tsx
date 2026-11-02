@@ -49,6 +49,22 @@ export default function EventEditor({
   const [effect, setEffect] = useState<VisualEffect>(initial?.effect ?? 'none');
   const [photoUri, setPhotoUri] = useState<string | null>(initial?.photoUri ?? null);
   const [error, setError] = useState('');
+  // 4-step split: the old editor stacked every field on one long
+  // scroll (title/date/type/repeat/category/relationship/contact/
+  // notes/colour/icon/sticker/font/effect/photo). Now Step 1 Basics,
+  // Step 2 Who & what, Step 3 Look, Step 4 Review & save. All draft
+  // state lives in this component, so Back/Next never loses a field.
+  const [step, setStep] = useState(1);
+  const stepTitles = ['Basics', 'Who & what', 'Look', 'Review & save'];
+  const nextStep = () => {
+    if (step === 1) {
+      if (!title.trim()) { setError('Give the event a title.'); return; }
+      if (!isValidDateISO(dateISO)) { setError('Date must be a real date as YYYY-MM-DD, e.g. 2026-12-25.'); return; }
+    }
+    setError('');
+    setStep(step + 1);
+  };
+  const backStep = () => { setError(''); if (step > 1) setStep(step - 1); else onCancel(); };
   // Inline contact import: kept inside the editor so opening it never
   // discards a half-filled form (a separate import screen would unmount
   // the editor and lose the draft).
@@ -110,175 +126,208 @@ export default function EventEditor({
 
   return (
     <ScrollView style={styles.wrap} contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
-      <Text style={styles.heading}>{initial ? 'Edit event' : 'New event'}</Text>
-      <Text style={styles.hint}>
-        {type === 'countdown'
-          ? 'Countdown: the date you are counting down to.'
-          : 'Day counting: the start date. Day 1 is the start date itself.'}
-      </Text>
-
-      <Text style={styles.label}>Title</Text>
-      <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="e.g. Trip to the Mountains" placeholderTextColor={colors.onSurfaceVariant} />
-
-      <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
-      <TextInput style={styles.input} value={dateISO} onChangeText={setDateISO} placeholder="2026-12-25" placeholderTextColor={colors.onSurfaceVariant} autoCapitalize="none" />
-
-      <Text style={styles.label}>Type</Text>
-      <View style={styles.row}>
-        {(['countdown', 'countup'] as const).map((t) => (
-          <Pressable key={t} onPress={() => setType(t)} style={[styles.chip, type === t && styles.chipOn]}>
-            <Text style={[styles.chipText, type === t && styles.chipTextOn]}>{t === 'countdown' ? 'Countdown' : 'Day counting'}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Repeat</Text>
-      <View style={styles.row}>
-        {(['none', 'monthly', 'yearly'] as const).map((r) => (
-          <Pressable key={r} onPress={() => setRepeat(r)} style={[styles.chip, repeat === r && styles.chipOn]}>
-            <Text style={[styles.chipText, repeat === r && styles.chipTextOn]}>{r === 'none' ? 'Once' : r === 'monthly' ? 'Monthly' : 'Yearly'}</Text>
-          </Pressable>
-        ))}
-      </View>
-      {repeat === 'yearly' ? <Text style={styles.hint}>Feb 29 repeats on Feb 28 in non-leap years.</Text> : null}
-      {repeat === 'monthly' ? <Text style={styles.hint}>Day 31 repeats on the last day of shorter months.</Text> : null}
-
-      <Text style={styles.label}>Category</Text>
-      <View style={styles.row}>
-        {CATEGORIES.map((c) => (
-          <Pressable key={c} onPress={() => setCategory(c)} style={[styles.chip, category === c && styles.chipOn]}>
-            <Text style={[styles.chipText, category === c && styles.chipTextOn]}>{c}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Relationship</Text>
-      <View style={styles.row}>
-        {RELATIONSHIPS.map((r) => (
-          <Pressable key={r} onPress={() => setRelationship(r)} style={[styles.chip, relationship === r && styles.chipOn]}>
-            <Text style={[styles.chipText, relationship === r && styles.chipTextOn]}>{r}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Linked contact (optional)</Text>
-      {contactName ? (
+      <Text style={styles.kicker}>{initial ? 'EDIT EVENT' : 'NEW EVENT'} · STEP {step} OF 4</Text>
+      <Text style={styles.heading}>{stepTitles[step - 1]}</Text>
+      {step === 1 ? (
         <Text style={styles.hint}>
-          {contactName}
-          {contactPhone ? ` · ${contactPhone}` : ''}
-          {contactEmail ? ` · ${contactEmail}` : ''}
-          {'\n'}Quick actions (call / WhatsApp / email) in Detail use this contact, only when a phone or email is present.
+          {type === 'countdown'
+            ? 'Countdown: the date you are counting down to.'
+            : 'Day counting: the start date. Day 1 is the start date itself.'}
         </Text>
-      ) : (
-        <Text style={styles.hint}>Link a contact to enable call / WhatsApp / email shortcuts in Detail. Import copies one contact locally — nothing is uploaded.</Text>
-      )}
-      <View style={styles.row}>
-        <Pressable style={styles.secondaryBtn} onPress={openImport}>
-          <Text style={styles.secondaryBtnText}>{showImport ? 'Hide contacts' : 'Import from contacts'}</Text>
-        </Pressable>
-        {contactName ? (
-          <Pressable style={styles.secondaryBtn} onPress={() => { setContactName(null); setContactPhone(null); setContactEmail(null); setContactPhotoUri(null); }}>
-            <Text style={styles.secondaryBtnText}>Unlink contact</Text>
-          </Pressable>
-        ) : null}
-      </View>
-      {showImport ? (
-        <View>
-          {importState === 'loading' ? <Text style={styles.hint}>Reading contacts…</Text> : null}
-          {importState === 'denied' ? (
-            <>
-              <Text style={styles.hint}>Contact permission was denied, so no contacts can be listed.</Text>
-              <Pressable style={styles.secondaryBtn} onPress={() => Linking.openSettings()}>
-                <Text style={styles.secondaryBtnText}>Open system settings</Text>
-              </Pressable>
-            </>
-          ) : null}
-          {importState === 'unavailable' ? <Text style={styles.hint}>Contacts could not be read on this device. {importError}</Text> : null}
-          {importState === 'ready' && importContacts.length === 0 ? (
-            <Text style={styles.hint}>No contacts with a birthday on file were found.</Text>
-          ) : null}
-          {importContacts.map((c) => (
-            <Pressable key={`${c.name}-${c.birthdayISO}`} style={styles.secondaryBtn} onPress={() => pickContact(c)}>
-              <Text style={styles.secondaryBtnText}>{c.name} — {c.birthdayISO}{c.birthdayYearKnown ? '' : ' (year not on file)'}</Text>
+      ) : null}
+
+      {step === 1 ? (<>
+        <Text style={styles.label}>Title</Text>
+        <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="e.g. Trip to the Mountains" placeholderTextColor={colors.onSurfaceVariant} />
+
+        <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
+        <TextInput style={styles.input} value={dateISO} onChangeText={setDateISO} placeholder="2026-12-25" placeholderTextColor={colors.onSurfaceVariant} autoCapitalize="none" />
+
+        <Text style={styles.label}>Type</Text>
+        <View style={styles.row}>
+          {(['countdown', 'countup'] as const).map((t) => (
+            <Pressable key={t} onPress={() => setType(t)} style={[styles.chip, type === t && styles.chipOn]}>
+              <Text style={[styles.chipText, type === t && styles.chipTextOn]}>{t === 'countdown' ? 'Countdown' : 'Day counting'}</Text>
             </Pressable>
           ))}
         </View>
-      ) : null}
 
-      <Text style={styles.label}>Notes</Text>
-      <TextInput style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]} value={notes} onChangeText={setNotes} placeholder="e.g. Likes dark chocolate, size M" placeholderTextColor={colors.onSurfaceVariant} multiline />
+        <Text style={styles.label}>Repeat</Text>
+        <View style={styles.row}>
+          {(['none', 'monthly', 'yearly'] as const).map((r) => (
+            <Pressable key={r} onPress={() => setRepeat(r)} style={[styles.chip, repeat === r && styles.chipOn]}>
+              <Text style={[styles.chipText, repeat === r && styles.chipTextOn]}>{r === 'none' ? 'Once' : r === 'monthly' ? 'Monthly' : 'Yearly'}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {repeat === 'yearly' ? <Text style={styles.hint}>Feb 29 repeats on Feb 28 in non-leap years.</Text> : null}
+        {repeat === 'monthly' ? <Text style={styles.hint}>Day 31 repeats on the last day of shorter months.</Text> : null}
+      </>) : null}
 
-      <Text style={styles.label}>Colour</Text>
-      <View style={styles.row}>
-        {EVENT_COLORS.map((c) => (
-          <Pressable key={c} onPress={() => setColor(c)} style={[styles.swatch, { backgroundColor: c }, color === c && styles.swatchOn]} />
-        ))}
-      </View>
+      {step === 2 ? (<>
+        <Text style={styles.label}>Category</Text>
+        <View style={styles.row}>
+          {CATEGORIES.map((c) => (
+            <Pressable key={c} onPress={() => setCategory(c)} style={[styles.chip, category === c && styles.chipOn]}>
+              <Text style={[styles.chipText, category === c && styles.chipTextOn]}>{c}</Text>
+            </Pressable>
+          ))}
+        </View>
 
-      <Text style={styles.label}>Icon</Text>
-      <View style={styles.row}>
-        {EVENT_ICONS.map((n) => (
-          <Pressable key={n} onPress={() => setIcon(n)} style={[styles.iconBtn, icon === n && styles.iconBtnOn]}>
-            <Ionicons name={n as never} size={22} color={icon === n ? colors.background : colors.onSurface} />
+        <Text style={styles.label}>Relationship</Text>
+        <View style={styles.row}>
+          {RELATIONSHIPS.map((r) => (
+            <Pressable key={r} onPress={() => setRelationship(r)} style={[styles.chip, relationship === r && styles.chipOn]}>
+              <Text style={[styles.chipText, relationship === r && styles.chipTextOn]}>{r}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Linked contact (optional)</Text>
+        {contactName ? (
+          <Text style={styles.hint}>
+            {contactName}
+            {contactPhone ? ` · ${contactPhone}` : ''}
+            {contactEmail ? ` · ${contactEmail}` : ''}
+            {'\n'}Quick actions (call / WhatsApp / email) in Detail use this contact, only when a phone or email is present.
+          </Text>
+        ) : (
+          <Text style={styles.hint}>Link a contact to enable call / WhatsApp / email shortcuts in Detail. Import copies one contact locally — nothing is uploaded.</Text>
+        )}
+        <View style={styles.row}>
+          <Pressable style={styles.secondaryBtn} onPress={openImport}>
+            <Text style={styles.secondaryBtnText}>{showImport ? 'Hide contacts' : 'Import from contacts'}</Text>
           </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Sticker (optional)</Text>
-      <View style={styles.row}>
-        {EVENT_STICKERS.map((s) => (
-          <Pressable key={s || 'none'} onPress={() => setSticker(s)} style={[styles.stickerBtn, sticker === s && styles.iconBtnOn]}>
-            <Text style={styles.stickerText}>{s === '' ? '–' : s}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Font for the big number</Text>
-      <View style={styles.row}>
-        {FONT_OPTIONS.map((f) => (
-          <Pressable key={f.key} onPress={() => setFont(f.key)} style={[styles.chip, font === f.key && styles.chipOn]}>
-            <Text style={[styles.chipText, { fontFamily: f.family }, font === f.key && styles.chipTextOn]}>{f.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Visual effect (styling only, no animation)</Text>
-      <View style={styles.row}>
-        {EFFECT_OPTIONS.map((e) => (
-          <Pressable key={e.key} onPress={() => setEffect(e.key)} style={[styles.chip, effect === e.key && styles.chipOn]}>
-            <Text style={[styles.chipText, effect === e.key && styles.chipTextOn]}>{e.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Background photo (optional, from your device)</Text>
-      {photoUri ? (
-        <Image source={{ uri: photoUri }} style={styles.photo} />
-      ) : null}
-      <View style={styles.row}>
-        <Pressable
-          style={styles.secondaryBtn}
-          onPress={async () => {
-            const uri = await pickSinglePhoto();
-            if (uri) setPhotoUri(uri);
-          }}
-        >
-          <Text style={styles.secondaryBtnText}>{photoUri ? 'Change photo' : 'Pick a photo'}</Text>
-        </Pressable>
-        {photoUri ? (
-          <Pressable style={styles.secondaryBtn} onPress={() => setPhotoUri(null)}>
-            <Text style={styles.secondaryBtnText}>Remove photo</Text>
-          </Pressable>
+          {contactName ? (
+            <Pressable style={styles.secondaryBtn} onPress={() => { setContactName(null); setContactPhone(null); setContactEmail(null); setContactPhotoUri(null); }}>
+              <Text style={styles.secondaryBtnText}>Unlink contact</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        {showImport ? (
+          <View>
+            {importState === 'loading' ? <Text style={styles.hint}>Reading contacts…</Text> : null}
+            {importState === 'denied' ? (
+              <>
+                <Text style={styles.hint}>Contact permission was denied, so no contacts can be listed.</Text>
+                <Pressable style={styles.secondaryBtn} onPress={() => Linking.openSettings()}>
+                  <Text style={styles.secondaryBtnText}>Open system settings</Text>
+                </Pressable>
+              </>
+            ) : null}
+            {importState === 'unavailable' ? <Text style={styles.hint}>Contacts could not be read on this device. {importError}</Text> : null}
+            {importState === 'ready' && importContacts.length === 0 ? (
+              <Text style={styles.hint}>No contacts with a birthday on file were found.</Text>
+            ) : null}
+            {importContacts.map((c) => (
+              <Pressable key={`${c.name}-${c.birthdayISO}`} style={styles.secondaryBtn} onPress={() => pickContact(c)}>
+                <Text style={styles.secondaryBtnText}>{c.name} — {c.birthdayISO}{c.birthdayYearKnown ? '' : ' (year not on file)'}</Text>
+              </Pressable>
+            ))}
+          </View>
         ) : null}
-      </View>
-      <Text style={styles.hint}>Photos stay on this device only. A picked photo may not survive an uninstall or reinstall.</Text>
+
+        <Text style={styles.label}>Notes</Text>
+        <TextInput style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]} value={notes} onChangeText={setNotes} placeholder="e.g. Likes dark chocolate, size M" placeholderTextColor={colors.onSurfaceVariant} multiline />
+      </>) : null}
+
+      {step === 3 ? (<>
+        <Text style={styles.label}>Colour</Text>
+        <View style={styles.row}>
+          {EVENT_COLORS.map((c) => (
+            <Pressable key={c} onPress={() => setColor(c)} style={[styles.swatch, { backgroundColor: c }, color === c && styles.swatchOn]} />
+          ))}
+        </View>
+
+        <Text style={styles.label}>Icon</Text>
+        <View style={styles.row}>
+          {EVENT_ICONS.map((n) => (
+            <Pressable key={n} onPress={() => setIcon(n)} style={[styles.iconBtn, icon === n && styles.iconBtnOn]}>
+              <Ionicons name={n as never} size={22} color={icon === n ? colors.background : colors.onSurface} />
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Sticker (optional)</Text>
+        <View style={styles.row}>
+          {EVENT_STICKERS.map((s) => (
+            <Pressable key={s || 'none'} onPress={() => setSticker(s)} style={[styles.stickerBtn, sticker === s && styles.iconBtnOn]}>
+              <Text style={styles.stickerText}>{s === '' ? '–' : s}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Font for the big number</Text>
+        <View style={styles.row}>
+          {FONT_OPTIONS.map((f) => (
+            <Pressable key={f.key} onPress={() => setFont(f.key)} style={[styles.chip, font === f.key && styles.chipOn]}>
+              <Text style={[styles.chipText, { fontFamily: f.family }, font === f.key && styles.chipTextOn]}>{f.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Visual effect (styling only, no animation)</Text>
+        <View style={styles.row}>
+          {EFFECT_OPTIONS.map((e) => (
+            <Pressable key={e.key} onPress={() => setEffect(e.key)} style={[styles.chip, effect === e.key && styles.chipOn]}>
+              <Text style={[styles.chipText, effect === e.key && styles.chipTextOn]}>{e.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Background photo (optional, from your device)</Text>
+        {photoUri ? (
+          <Image source={{ uri: photoUri }} style={styles.photo} />
+        ) : null}
+        <View style={styles.row}>
+          <Pressable
+            style={styles.secondaryBtn}
+            onPress={async () => {
+              const uri = await pickSinglePhoto();
+              if (uri) setPhotoUri(uri);
+            }}
+          >
+            <Text style={styles.secondaryBtnText}>{photoUri ? 'Change photo' : 'Pick a photo'}</Text>
+          </Pressable>
+          {photoUri ? (
+            <Pressable style={styles.secondaryBtn} onPress={() => setPhotoUri(null)}>
+              <Text style={styles.secondaryBtnText}>Remove photo</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        <Text style={styles.hint}>Photos stay on this device only. A picked photo may not survive an uninstall or reinstall.</Text>
+      </>) : null}
+
+      {step === 4 ? (<>
+        <Text style={styles.hint}>Check everything, then save. Tap Back to change any step — nothing is lost.</Text>
+        <View style={styles.reviewCard}>
+          <Text style={styles.reviewBig}>{title.trim() || '(no title yet)'}</Text>
+          <Text style={styles.reviewLine}>{dateISO} · {type === 'countdown' ? 'Countdown' : 'Day counting'} · {repeat === 'none' ? 'Once' : repeat}</Text>
+          <Text style={styles.reviewLine}>{category} · {relationship}</Text>
+          {contactName ? <Text style={styles.reviewLine}>Contact: {contactName}</Text> : null}
+          {notes.trim() ? <Text style={styles.reviewLine}>Notes: {notes.trim()}</Text> : null}
+          <View style={styles.row}>
+            <View style={[styles.swatch, { backgroundColor: color }]} />
+            <Ionicons name={icon as never} size={22} color={color} />
+            {sticker ? <Text style={styles.stickerText}>{sticker}</Text> : null}
+            <Text style={styles.reviewLine}>{FONT_OPTIONS.find((f) => f.key === font)?.label} · {EFFECT_OPTIONS.find((e) => e.key === effect)?.label}</Text>
+          </View>
+          {photoUri ? <Image source={{ uri: photoUri }} style={styles.photo} /> : <Text style={styles.reviewLine}>No background photo</Text>}
+        </View>
+      </>) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable style={styles.primaryBtn} onPress={save}>
-        <Text style={styles.primaryBtnText}>Save event</Text>
-      </Pressable>
-      <Pressable style={styles.secondaryBtn} onPress={onCancel}>
-        <Text style={styles.secondaryBtnText}>Cancel</Text>
+      {step < 4 ? (
+        <Pressable style={styles.primaryBtn} onPress={nextStep}>
+          <Text style={styles.primaryBtnText}>Continue →</Text>
+        </Pressable>
+      ) : (
+        <Pressable style={styles.primaryBtn} onPress={save}>
+          <Text style={styles.primaryBtnText}>Save event</Text>
+        </Pressable>
+      )}
+      <Pressable style={styles.secondaryBtnFull} onPress={backStep}>
+        <Text style={styles.secondaryBtnText}>{step > 1 ? '‹ Back' : 'Cancel'}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -286,7 +335,11 @@ export default function EventEditor({
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: colors.background },
-  heading: { fontFamily: fonts.grotesk, fontSize: 28, color: colors.onSurface },
+  kicker: { fontFamily: fonts.jakartaBold, fontSize: 11, color: colors.primary, letterSpacing: 1.2 },
+  heading: { fontFamily: fonts.grotesk, fontSize: 28, color: colors.onSurface, marginTop: 4 },
+  reviewCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 14, marginTop: 12, borderWidth: 1, borderColor: colors.border },
+  reviewBig: { fontFamily: fonts.grotesk, fontSize: 22, color: colors.onSurface },
+  reviewLine: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurface, marginTop: 6, lineHeight: 20 },
   hint: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 6, lineHeight: 18 },
   label: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.onSurface, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 20 },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 16, marginTop: 8 },
@@ -305,6 +358,7 @@ const styles = StyleSheet.create({
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 24 },
   primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 16 },
   secondaryBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginTop: 12 },
+  secondaryBtnFull: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 12 },
   secondaryBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 14 },
   error: { color: colors.error, fontFamily: fonts.jakartaMedium, fontSize: 14, marginTop: 16 },
 });
