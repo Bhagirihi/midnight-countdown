@@ -1,0 +1,116 @@
+{
+  "expo": {
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F0F11",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "package": "com.midnightcountdown.app"
+    },
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "com.midnightcountdown.app",
+      "supportsTablet": true
+    },
+    "name": "Midnight Countdown",
+    "orientation": "portrait",
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0F0F11",
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "enableAndroid": true,
+          "widgets": [
+            {
+              "name": "MidnightSmall",
+              "displayName": "Midnight Countdown — Small",
+              "description": "Big D-number and title for your pinned countdown.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall"
+                ],
+                "initialLayout": "./src/widgets/MidnightSmall.tsx"
+              },
+              "android": {
+                "targetCellWidth": 1,
+                "targetCellHeight": 1,
+                "minWidth": 110,
+                "minHeight": 110,
+                "initialLayout": "./src/widgets/MidnightSmall.tsx"
+              }
+            },
+            {
+              "name": "MidnightMedium",
+              "displayName": "Midnight Countdown — Medium",
+              "description": "D-number, title and next date for your pinned countdown.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemMedium"
+                ],
+                "initialLayout": "./src/widgets/MidnightMedium.tsx"
+              },
+              "android": {
+                "targetCellWidth": 2,
+                "targetCellHeight": 1,
+                "minWidth": 180,
+                "minHeight": 110,
+                "initialLayout": "./src/widgets/MidnightMedium.tsx"
+              }
+            },
+            {
+              "name": "MidnightLarge",
+              "displayName": "Midnight Countdown — Large",
+              "description": "Pinned countdown with next milestone, next story date and next event.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemLarge"
+                ],
+                "initialLayout": "./src/widgets/MidnightLarge.tsx"
+              },
+              "android": {
+                "targetCellWidth": 2,
+                "targetCellHeight": 2,
+                "minWidth": 180,
+                "minHeight": 180,
+                "initialLayout": "./src/widgets/MidnightLarge.tsx"
+              }
+            },
+            {
+              "name": "MidnightNextUp",
+              "displayName": "Midnight Countdown — Next up",
+              "description": "Your next three upcoming events with their D-numbers.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemMedium"
+                ],
+                "initialLayout": "./src/widgets/MidnightNextUp.tsx"
+              },
+              "android": {
+                "targetCellWidth": 4,
+                "targetCellHeight": 2,
+                "minWidth": 320,
+                "minHeight": 180,
+                "initialLayout": "./src/widgets/MidnightNextUp.tsx"
+              }
+            }
+          ]
+        }
+      ]
+    ],
+    "scheme": "midnight-countdown",
+    "slug": "midnight-countdown",
+    "userInterfaceStyle": "dark",
+    "version": "1.0.0",
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/icon.png"
+    }
+  }
+}
