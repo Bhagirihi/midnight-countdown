@@ -45,3 +45,15 @@ export async function signOut(): Promise<void> {
   await AsyncStorage.removeItem(AUTH_CHOICE_KEY);
   await AsyncStorage.removeItem(EMAIL_KEY);
 }
+
+/** Start from zero: deletes EVERYTHING this app stored on this device —
+ *  events, stories, gift plans, comments, settings, widget snapshot,
+ *  display name, app-lock, onboarding progress and sign-in choice.
+ *  There is no cloud backup, so this cannot be undone. Only keys
+ *  namespaced 'midnight:' are removed; nothing else on the device
+ *  is touched. */
+export async function resetAllData(): Promise<void> {
+  const all = await AsyncStorage.getAllKeys();
+  const ours = all.filter((k) => k.startsWith('midnight:'));
+  if (ours.length > 0) await AsyncStorage.multiRemove(ours);
+}

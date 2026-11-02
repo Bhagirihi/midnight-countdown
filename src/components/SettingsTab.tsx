@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, fonts } from '../lib/theme';
 import type { Settings } from '../lib/events';
 import { hashPin } from '../lib/applock';
@@ -12,13 +12,14 @@ import LegalScreen from './LegalScreen';
 // deliberately no Forgot Password flow — the Privacy & Security group
 // offers the device app-lock instead (see LockScreen for its limits).
 export default function SettingsTab({
-  settings, authLabel, onToggle, onReplayOnboarding, onSignOut, onOpenSocial, onOpenWidgets,
+  settings, authLabel, onToggle, onReplayOnboarding, onSignOut, onResetFromZero, onOpenSocial, onOpenWidgets,
 }: {
   settings: Settings;
   authLabel: string;
   onToggle: (patch: Partial<Settings>) => void;
   onReplayOnboarding: () => void;
   onSignOut: () => void;
+  onResetFromZero: () => void;
   /** Discover sections live here now that the bottom tab bar is only
    *  Home + Profile — Social and Widgets were relocated, not removed. */
   onOpenSocial?: () => void;
@@ -26,6 +27,14 @@ export default function SettingsTab({
 }) {
   const [legal, setLegal] = useState<'terms' | 'privacy' | null>(null);
   const [name, setName] = useState(settings.displayName);
+  // Subscription pricing — DESIGN PREVIEW ONLY. No purchase, no
+  // RevenueCat, no store product is wired up, so Upgrade/Restore
+  // only show a preview alert and never charge or change the plan.
+  // Prices below are the researched recommendation (see README note):
+  // India ₹49/mo, ₹399/yr; Global $1.49/mo, $11.99/yr — yearly saves
+  // about a third versus paying monthly in both regions.
+  const [region, setRegion] = useState<'india' | 'global'>('india');
+  const [plan, setPlan] = useState<'monthly' | 'yearly'>('yearly');
   const [pin, setPin] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
   const [pinMsg, setPinMsg] = useState('');
@@ -59,6 +68,59 @@ export default function SettingsTab({
       <Pressable style={styles.secondaryBtn} onPress={() => onToggle({ displayName: name.trim() })}>
         <Text style={styles.secondaryText}>Save display name</Text>
       </Pressable>
+
+      <Text style={styles.group}>Subscription</Text>
+      <Text style={styles.body}>
+        Current plan: Free — no purchase, no payment method, no expiry.
+        Everything in this app is included right now.
+      </Text>
+      <Text style={styles.hint}>Pro pricing — design preview only. No charge is made.</Text>
+      <View style={styles.regionRow}>
+        <Pressable style={[styles.regionBtn, region === 'india' && styles.regionBtnOn]} onPress={() => setRegion('india')}>
+          <Text style={[styles.regionText, region === 'india' && styles.regionTextOn]}>India (₹)</Text>
+        </Pressable>
+        <Pressable style={[styles.regionBtn, region === 'global' && styles.regionBtnOn]} onPress={() => setRegion('global')}>
+          <Text style={[styles.regionText, region === 'global' && styles.regionTextOn]}>Global ($)</Text>
+        </Pressable>
+      </View>
+      <Pressable style={[styles.planCard, plan === 'monthly' && styles.planCardOn]} onPress={() => setPlan('monthly')}>
+        <Text style={styles.planTitle}>Pro Monthly</Text>
+        <Text style={styles.planPrice}>{region === 'india' ? '₹49' : '$1.49'} / month</Text>
+        <Text style={styles.planMeta}>Billed monthly · cancel anytime</Text>
+      </Pressable>
+      <Pressable style={[styles.planCard, plan === 'yearly' && styles.planCardOn]} onPress={() => setPlan('yearly')}>
+        <Text style={styles.planTitle}>Pro Yearly — Best value</Text>
+        <Text style={styles.planPrice}>{region === 'india' ? '₹399' : '$11.99'} / year</Text>
+        <Text style={styles.planMeta}>
+          {region === 'india' ? '₹33 / month equivalent · saves 32% vs monthly' : '$1.00 / month equivalent · saves 33% vs monthly'}
+        </Text>
+      </Pressable>
+      <Text style={styles.body}>
+        Pro includes: unlimited events, all widgets, all themes &amp; fonts,
+        Story, gift planning, and contact &amp; calendar import.
+      </Text>
+      <Pressable
+        style={styles.primaryBtn}
+        onPress={() => Alert.alert(
+          'Design preview',
+          `Pro ${plan === 'monthly' ? 'Monthly' : 'Yearly'} purchase is not configured yet. This is only a design preview — no charge will be made and your plan stays Free.`,
+        )}
+      >
+        <Text style={styles.primaryBtnText}>
+          Upgrade to Pro {plan === 'monthly' ? 'Monthly' : 'Yearly'}
+        </Text>
+      </Pressable>
+      <Pressable
+        style={styles.secondaryBtn}
+        onPress={() => Alert.alert('Design preview', 'Restore purchase is not configured yet. Your plan stays Free.')}
+      >
+        <Text style={styles.secondaryText}>Restore purchase</Text>
+      </Pressable>
+      <Text style={styles.hint}>
+        Prices are a design recommendation, not store prices yet. Real
+        prices will come from the store product when purchase is wired
+        up, and auto-renewal terms will apply then.
+      </Text>
 
       <Text style={styles.group}>Discover</Text>
       <Text style={styles.body}>
@@ -128,6 +190,27 @@ export default function SettingsTab({
         <Text style={styles.secondaryText}>Sign out</Text>
       </Pressable>
 
+      <Text style={styles.group}>Start from zero</Text>
+      <Text style={styles.body}>
+        Deletes everything this app stored on this device — all events, stories, gift plans,
+        comments, settings, widget pin, display name and app-lock — and takes you back to
+        onboarding, as if you just installed it. There is no cloud backup, so this cannot
+        be undone.
+      </Text>
+      <Pressable
+        style={styles.dangerBtn}
+        onPress={() => Alert.alert(
+          'Start from zero?',
+          'This deletes all your events, stories, gift plans and settings on this device. It cannot be undone.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete everything', style: 'destructive', onPress: onResetFromZero },
+          ],
+        )}
+      >
+        <Text style={styles.dangerText}>Start from zero</Text>
+      </Pressable>
+
       <Text style={styles.group}>What is NOT real yet</Text>
       <Text style={styles.body}>
         • Social: no server, no real users — comments are local only.{"\n"}
@@ -151,6 +234,20 @@ const styles = StyleSheet.create({
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 15, marginTop: 8 },
   row: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginTop: 10, borderWidth: 1, borderColor: colors.border },
   rowText: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface, lineHeight: 21 },
+  primaryBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 12 },
+  primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 15 },
+  regionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  regionBtn: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, alignItems: 'center' },
+  regionBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  regionText: { color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 14 },
+  regionTextOn: { color: colors.background, fontFamily: fonts.jakartaBold },
+  planCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 14, marginTop: 12 },
+  planCardOn: { borderColor: colors.primary, borderWidth: 2 },
+  planTitle: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 15 },
+  planPrice: { color: colors.onSurface, fontFamily: fonts.grotesk, fontSize: 24, marginTop: 4 },
+  planMeta: { color: colors.onSurfaceVariant, fontFamily: fonts.jakartaMedium, fontSize: 13, marginTop: 4 },
   secondaryBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 12 },
   secondaryText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 14 },
+  dangerBtn: { borderWidth: 1, borderColor: '#EF4444', borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 12 },
+  dangerText: { color: '#EF4444', fontFamily: fonts.jakartaBold, fontSize: 14 },
 });

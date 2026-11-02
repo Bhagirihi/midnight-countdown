@@ -15,6 +15,7 @@ import {
   loadProgress,
   markOnboardingSeen,
   replayOnboarding,
+  resetAllData,
   setGuest,
   setLocalEmail,
   signOut,
@@ -112,6 +113,13 @@ export default function App() {
     setScreen('auth');
   }, []);
 
+  const doResetFromZero = useCallback(async () => {
+    await resetAllData();
+    setAuthChoice(null);
+    setLocalEmail(null);
+    setScreen('onboarding');
+  }, []);
+
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
@@ -126,6 +134,7 @@ export default function App() {
           authLabel={authChoice === 'local-email' && localEmail ? localEmail.toUpperCase() : 'GUEST'}
           onReplayOnboarding={doReplayOnboarding}
           onSignOut={doSignOut}
+          onResetFromZero={doResetFromZero}
         />
       )}
       {/* Keep a mounted View so the tree never renders empty during transitions. */}

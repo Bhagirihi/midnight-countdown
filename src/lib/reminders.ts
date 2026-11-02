@@ -84,6 +84,41 @@ export async function scheduleReminders(
   }
 }
 
+/** Fires ONE immediate local notification the moment an event is added
+ *  (confirmation + a reminder that D-7/D-3/D-1/day-of are scheduled).
+ *  Best-effort only: if permission is denied or notifications are
+ *  unavailable (Expo Go), it silently does nothing and never blocks
+ *  saving the event. The caller still schedules the future reminders
+ *  separately via scheduleReminders(). */
+export async function sendImmediateNotification(
+  title: string,
+  body: string,
+): Promise<boolean> {
+  try {
+    const Notifications = await import('expo-notifications');
+    try {
+      await Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+    } catch { /* handler already set */ }
+    const perm = await Notifications.requestPermissionsAsync();
+    if (perm.status !== 'granted') return false;
+    await Notifications.scheduleNotificationAsync({
+      content: { title, body },
+      trigger: null,
+    } as never);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function cancelReminders(eventId: string): Promise<void> {
   try {
     const Notifications = await import('expo-notifications');

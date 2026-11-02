@@ -15,7 +15,7 @@ import {
 } from '../lib/events';
 import type { ImportedContact } from '../lib/contacts';
 import type { ImportedCalendarEvent } from '../lib/calendarImport';
-import { cancelReminders, scheduleReminders } from '../lib/reminders';
+import { cancelReminders, scheduleReminders, sendImmediateNotification } from '../lib/reminders';
 import EventEditor from './EventEditor';
 import EventDetail, { effectBorder } from './EventDetail';
 import SocialTab from './SocialTab';
@@ -41,11 +41,12 @@ const FONT_FAMILY: Record<string, string> = {
 };
 
 export default function Home({
-  authLabel, onReplayOnboarding, onSignOut,
+  authLabel, onReplayOnboarding, onSignOut, onResetFromZero,
 }: {
   authLabel: string;
   onReplayOnboarding: () => void;
   onSignOut: () => void;
+  onResetFromZero: () => void;
 }) {
   const [events, setEvents] = useState<CountdownEvent[]>([]);
   const [stories, setStories] = useState<StoryEntry[]>([]);
@@ -126,6 +127,10 @@ export default function Home({
     if (settings.remindersEnabled) {
       await scheduleReminders(event, today, settings.milestoneNotifications);
     }
+    await sendImmediateNotification(
+      'Event added',
+      `${event.title} is now counting. We'll remind you at D-7, D-3, D-1 and on the day.`,
+    );
     setShowWizard(false);
     setTab('home');
     setView({ kind: 'list' });
@@ -206,12 +211,25 @@ export default function Home({
           initial={view.event}
           onCancel={() => setView({ kind: 'list' })}
           onSave={async (saved) => {
-            const list = view.event
-              ? events.map((e) => (e.id === saved.id ? saved : e))
-              : [...events, saved];
+            // Not just !view.event: contact/calendar imports open the
+            // editor with a prefilled draft that is not in the list yet.
+            // Append in that case — the old map-only branch silently
+            // dropped imported events (their id was not in the list).
+            const isNew = !events.some((e) => e.id === saved.id);
+            const list = isNew
+              ? [...events, saved]
+              : events.map((e) => (e.id === saved.id ? saved : e));
             await persistEvents(list);
-            if (settings.remindersEnabled && saved.type === 'countdown') {
+            if (settings.remindersEnabled) {
+              // All types: scheduleReminders itself decides (count-ups
+              // only get reminders when milestone notifications are on).
               await scheduleReminders(saved, today, settings.milestoneNotifications);
+            }
+            if (isNew) {
+              await sendImmediateNotification(
+                'Event added',
+                `${saved.title} is now counting. We'll remind you at D-7, D-3, D-1 and on the day.`,
+              );
             }
             setView({ kind: 'detail', id: saved.id });
           }}
@@ -409,7 +427,12 @@ export default function Home({
               </Pressable>
               <Pressable
                 style={styles.primaryBtn}
-                onPress={async () => persistEvents(exampleEvents(today))}
+                onPress={async () => {
+                  const added = exampleEvents(today);
+                  await persistEvents(added);
+                  // One summary notification for the batch, not one per event.
+                  await sendImmediateNotification('Example events added', `${added.length} example events are now counting.`);
+                }}
               >
                 <Text style={styles.primaryBtnText}>Add example events</Text>
               </Pressable>
@@ -483,16 +506,23 @@ export default function Home({
           }}
           onReplayOnboarding={onReplayOnboarding}
           onSignOut={onSignOut}
+          onResetFromZero={onResetFromZero}
           onOpenSocial={() => setView({ kind: 'social' })}
           onOpenWidgets={() => setView({ kind: 'widgets' })}
         />
       )}
 
-      {/* FAB: Add Event is always one tap away on Home. */}
+      {/* Add Event button: rendered in normal flow ABOVE the tab bar, not
+          absolutely positioned over it. The old absolute FAB (bottom: 76)
+          was painted under the tab bar on devices with a larger bottom
+          inset, so its bottom was cut off. This row can never be cut:
+          it takes its own height in the layout, above the tab bar. */}
       {tab === 'home' && view.kind === 'list' ? (
-        <Pressable style={styles.fab} onPress={() => setView({ kind: 'editor', event: null })}>
-          <Text style={styles.fabText}>+</Text>
-        </Pressable>
+        <View style={styles.fabRow}>
+          <Pressable style={styles.fab} onPress={() => setView({ kind: 'editor', event: null })}>
+            <Text style={styles.fabText}>+</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       <View style={styles.tabBar}>
@@ -540,10 +570,11 @@ const styles = StyleSheet.create({
   tabBtn: { flex: 1, alignItems: 'center', gap: 2 },
   tabLabel: { fontFamily: fonts.jakartaMedium, fontSize: 11, color: colors.onSurfaceVariant },
   tabLabelOn: { color: colors.primary, fontFamily: fonts.jakartaBold },
+  fabRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: colors.background },
   fab: {
-    position: 'absolute', right: 16, bottom: 76, width: 56, height: 56, borderRadius: 28,
+    width: 56, height: 56, borderRadius: 28,
     backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
-    shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 24, shadowOffset: { width: 0, height: 8 }, elevation: 0,
+    shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 24, shadowOffset: { width: 0, height: 8 }, elevation: 6,
   },
   fabText: { fontFamily: fonts.grotesk, fontSize: 30, color: colors.background, lineHeight: 32 },
 });
