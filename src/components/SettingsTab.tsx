@@ -1,11 +1,10 @@
-// Profile & Settings — a MENU of exactly 4 steps, not one long
-// scroll and not 8 rows. Step 1 Account (profile + sign-out +
-// replay + start-from-zero), Step 2 Subscription, Step 3
-// Notifications & Privacy, Step 4 Discover (incl. the honesty list).
-// Tapping a row opens only that step, with a Back button. Nothing
-// was removed — every control still exists, grouped, one tap deeper.
-// Display name is local only; there is no account password, so there
-// is deliberately no Forgot Password flow (app-lock instead).
+// Settings — the footer tab that holds ALL the extra things, so
+// Profile can stay clean. Menu: Subscription, Notifications &
+// Privacy, Discover (incl. the honesty list). Tapping a row opens
+// only that section, with a Back button. Account actions (display
+// name, sign-out, start-from-zero) live in ProfileTab, not here.
+// There is no account password, so there is deliberately no Forgot
+// Password flow (app-lock instead).
 import { useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +13,7 @@ import type { Settings } from '../lib/events';
 import { hashPin } from '../lib/applock';
 import LegalScreen from './LegalScreen';
 
-type Section = 'account' | 'subscription' | 'notifprivacy' | 'discover';
+type Section = 'subscription' | 'notifprivacy' | 'discover';
 
 function MenuRow({ icon, title, sub, danger, onPress }: {
   icon: string; title: string; sub: string; danger?: boolean; onPress: () => void;
@@ -37,7 +36,7 @@ function SubHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
     <View>
       <Pressable onPress={onBack} hitSlop={8}>
-        <Text style={styles.back}>‹ Back to Profile</Text>
+        <Text style={styles.back}>‹ Back to Settings</Text>
       </Pressable>
       <Text style={styles.heading}>{title}</Text>
     </View>
@@ -45,20 +44,16 @@ function SubHeader({ title, onBack }: { title: string; onBack: () => void }) {
 }
 
 export default function SettingsTab({
-  settings, authLabel, onToggle, onReplayOnboarding, onSignOut, onResetFromZero, onOpenSocial, onOpenWidgets,
+  settings, authLabel, onToggle, onOpenSocial, onOpenWidgets,
 }: {
   settings: Settings;
   authLabel: string;
   onToggle: (patch: Partial<Settings>) => void;
-  onReplayOnboarding: () => void;
-  onSignOut: () => void;
-  onResetFromZero: () => void;
   onOpenSocial?: () => void;
   onOpenWidgets?: () => void;
 }) {
   const [section, setSection] = useState<Section | null>(null);
   const [legal, setLegal] = useState<'terms' | 'privacy' | null>(null);
-  const [name, setName] = useState(settings.displayName);
   // Subscription pricing — DESIGN PREVIEW ONLY. No purchase, no
   // RevenueCat, no store product is wired up, so Upgrade/Restore
   // only show a preview alert and never charge or change the plan.
@@ -89,36 +84,9 @@ export default function SettingsTab({
     <ScrollView style={styles.wrap} contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>{children}</ScrollView>
   );
 
-  if (section === 'account') {
-    return shell(<>
-      <SubHeader title="Step 1 · Account" onBack={back} />
-      <Text style={styles.meta}>Signed in as: {authLabel} (local only — no server account)</Text>
-      <Text style={styles.label}>Display name (local only)</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Dhruv" placeholderTextColor={colors.onSurfaceVariant} />
-      <Pressable style={styles.secondaryBtn} onPress={() => onToggle({ displayName: name.trim() })}>
-        <Text style={styles.secondaryText}>Save display name</Text>
-      </Pressable>
-      <Text style={styles.subGroup}>About this app</Text>
-      <Pressable style={styles.secondaryBtn} onPress={onReplayOnboarding}>
-        <Text style={styles.secondaryText}>Replay onboarding</Text>
-      </Pressable>
-      <Pressable style={styles.secondaryBtn} onPress={onSignOut}>
-        <Text style={styles.secondaryText}>Sign out</Text>
-      </Pressable>
-      <Text style={styles.subGroup}>Start from zero</Text>
-      <Text style={styles.body}>Deletes everything this app stored on this device — all events, stories, gift plans, comments, settings, widget pin, display name and app-lock — and takes you back to onboarding, as if you just installed it. There is no cloud backup, so this cannot be undone.</Text>
-      <Pressable style={styles.dangerBtn} onPress={() => Alert.alert('Start from zero?', 'This deletes all your events, stories, gift plans and settings on this device. It cannot be undone.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete everything', style: 'destructive', onPress: onResetFromZero },
-      ])}>
-        <Text style={styles.dangerText}>Start from zero</Text>
-      </Pressable>
-    </>);
-  }
-
   if (section === 'subscription') {
     return shell(<>
-      <SubHeader title="Step 2 · Subscription" onBack={back} />
+      <SubHeader title="Subscription" onBack={back} />
       <Text style={styles.body}>Current plan: Free — no purchase, no payment method, no expiry. Everything in this app is included right now.</Text>
       <Text style={styles.hint}>Pro pricing — design preview only. No charge is made.</Text>
       <View style={styles.regionRow}>
@@ -152,7 +120,7 @@ export default function SettingsTab({
 
   if (section === 'notifprivacy') {
     return shell(<>
-      <SubHeader title="Step 3 · Notifications & Privacy" onBack={back} />
+      <SubHeader title="Notifications & Privacy" onBack={back} />
       <Text style={styles.subGroup}>Notifications</Text>
       <Pressable style={styles.row} onPress={() => onToggle({ remindersEnabled: !settings.remindersEnabled })}>
         <Text style={styles.rowText}>Smart reminders (D-7 / D-3 / D-1 / day-of): {settings.remindersEnabled ? 'ON' : 'OFF'}</Text>
@@ -189,7 +157,7 @@ export default function SettingsTab({
 
   if (section === 'discover') {
     return shell(<>
-      <SubHeader title="Step 4 · Discover" onBack={back} />
+      <SubHeader title="Discover" onBack={back} />
       <Text style={styles.body}>Recommended Events and Widgets used to be bottom tabs. They now live here so the tab bar stays to Home + Profile.</Text>
       {onOpenSocial ? (
         <Pressable style={styles.row} onPress={onOpenSocial}>
@@ -212,15 +180,14 @@ export default function SettingsTab({
     </>);
   }
 
-  // Menu — the only thing the Profile tab shows on entry.
+  // Menu — the only thing the Settings tab shows on entry.
   return shell(<>
-    <Text style={styles.heading}>Profile</Text>
-    <Text style={styles.meta}>{authLabel} · local only — no server account</Text>
+    <Text style={styles.heading}>Settings</Text>
+    <Text style={styles.meta}>Everything extra lives here — Profile stays clean.</Text>
     <View style={{ marginTop: 16 }}>
-      <MenuRow icon="person-outline" title="Step 1 · Account" sub="Display name · Sign out · Start from zero" onPress={() => { setName(settings.displayName); setSection('account'); }} />
-      <MenuRow icon="card-outline" title="Step 2 · Subscription" sub="Current plan: Free · Pro pricing (design preview)" onPress={() => setSection('subscription')} />
-      <MenuRow icon="notifications-outline" title="Step 3 · Notifications & Privacy" sub={`Reminders ${settings.remindersEnabled ? 'ON' : 'OFF'} · App-lock ${settings.appLockEnabled ? 'ON' : 'OFF'}`} onPress={() => setSection('notifprivacy')} />
-      <MenuRow icon="compass-outline" title="Step 4 · Discover" sub="Recommended · Widgets · What is NOT real yet" onPress={() => setSection('discover')} />
+      <MenuRow icon="card-outline" title="Subscription" sub="Current plan: Free · Pro pricing (design preview)" onPress={() => setSection('subscription')} />
+      <MenuRow icon="notifications-outline" title="Notifications & Privacy" sub={`Reminders ${settings.remindersEnabled ? 'ON' : 'OFF'} · App-lock ${settings.appLockEnabled ? 'ON' : 'OFF'}`} onPress={() => setSection('notifprivacy')} />
+      <MenuRow icon="compass-outline" title="Discover" sub="Recommended · Widgets · What is NOT real yet" onPress={() => setSection('discover')} />
     </View>
   </>);
 }

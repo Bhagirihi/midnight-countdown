@@ -21,17 +21,18 @@ import EventDetail, { effectBorder } from './EventDetail';
 import SocialTab from './SocialTab';
 import WidgetsTab from './WidgetsTab';
 import SettingsTab from './SettingsTab';
+import ProfileTab from './ProfileTab';
 import ContactImport from './ContactImport';
 import CalendarImport from './CalendarImport';
 import LockScreen from './LockScreen';
 import FirstEventWizard from './FirstEventWizard';
 
-// De-congested navigation: only Home + Profile as bottom tabs. Social
+// Navigation: Home + Profile + Settings as bottom tabs. Social
 // (Recommended Events) and Widgets were RELOCATED into Profile >
 // Discover — not removed — and open as full sub-views with a back
 // button. Add Event is never buried: a single floating + button,
 // always on top of the list, plus the empty-state buttons.
-type Tab = 'home' | 'profile';
+type Tab = 'home' | 'profile' | 'settings';
 type Filter = 'all' | 'upcoming' | 'counting' | 'repeats';
 type ViewState = { kind: 'list' } | { kind: 'editor'; event: CountdownEvent | null } | { kind: 'detail'; id: string } | { kind: 'contacts' } | { kind: 'calendar' } | { kind: 'social' } | { kind: 'widgets' };
 
@@ -359,7 +360,7 @@ export default function Home({
       <SafeAreaView style={styles.wrap} edges={['top', 'bottom']}>
         <SocialTab
           comments={comments}
-          onBack={() => { setView({ kind: 'list' }); setTab('profile'); }}
+          onBack={() => { setView({ kind: 'list' }); setTab('settings'); }}
           onJoin={(recId) => {
             const rec = RECOMMENDED_EVENTS.find((r) => r.id === recId);
             if (!rec) return;
@@ -390,7 +391,7 @@ export default function Home({
           events={events}
           settings={settings}
           snapshot={snapshot}
-          onBack={() => { setView({ kind: 'list' }); setTab('profile'); }}
+          onBack={() => { setView({ kind: 'list' }); setTab('settings'); }}
           onPin={async (id) => {
             const s = { ...settings, pinnedEventId: id };
             setSettings(s);
@@ -421,7 +422,7 @@ export default function Home({
               from here. The gear opens Profile directly. */}
           <View style={styles.headerRow}>
             <Text style={[styles.heading, { flex: 1 }]}>Your countdowns</Text>
-            <Pressable style={styles.gearBtn} onPress={() => { setTab('profile'); setView({ kind: 'list' }); }} hitSlop={8}>
+            <Pressable style={styles.gearBtn} onPress={() => { setTab('settings'); setView({ kind: 'list' }); }} hitSlop={8}>
               <Ionicons name="settings-outline" size={24} color={colors.onSurface} />
             </Pressable>
           </View>
@@ -493,8 +494,8 @@ export default function Home({
           )}
 
         </ScrollView>
-      ) : (
-        <SettingsTab
+      ) : tab === 'profile' ? (
+        <ProfileTab
           settings={settings}
           authLabel={authLabel}
           onToggle={async (patch) => {
@@ -505,6 +506,16 @@ export default function Home({
           onReplayOnboarding={onReplayOnboarding}
           onSignOut={onSignOut}
           onResetFromZero={onResetFromZero}
+        />
+      ) : (
+        <SettingsTab
+          settings={settings}
+          authLabel={authLabel}
+          onToggle={async (patch) => {
+            const s = { ...settings, ...patch };
+            setSettings(s);
+            await saveSettings(s);
+          }}
           onOpenSocial={() => setView({ kind: 'social' })}
           onOpenWidgets={() => setView({ kind: 'widgets' })}
         />
@@ -514,6 +525,7 @@ export default function Home({
         {([
           { key: 'home', label: 'Home', icon: 'home' },
           { key: 'profile', label: 'Profile', icon: 'person' },
+          { key: 'settings', label: 'Settings', icon: 'settings-outline' },
         ] as const).map((t) => (
           <Pressable key={t.key} onPress={() => { setTab(t.key); setView({ kind: 'list' }); }} style={styles.tabBtn}>
             <Ionicons name={t.icon as never} size={22} color={tab === t.key ? colors.primary : colors.onSurfaceVariant} />
