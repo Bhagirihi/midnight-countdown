@@ -20,10 +20,36 @@
 //   pushes with updateSnapshot (see widgetSync.ts). The props below
 //   are derived ONLY from the existing widget snapshot
 //   (midnight:widgetSnapshot) — no new data is invented for widgets.
+//   Exception: the two year variants, whose props are today's date
+//   (yearProgress), not event data.
 
 import type { WidgetSnapshot } from './events';
 
-export type WidgetVariant = 'small' | 'medium' | 'large' | 'list';
+export type WidgetVariant = 'small' | 'medium' | 'large' | 'list' | 'yearDots' | 'yearLock';
+
+/** Days left in the current year, matching the "92 days left" widgets
+ *  in the reference screenshots: today still counts as a day left
+ *  (daysLeft = total - dayOfYear + 1), days already fully passed are
+ *  elapsed = dayOfYear - 1, and percent = round(elapsed / total * 100).
+ *  E.g. 1 Oct 2026: dayOfYear 274, total 365, daysLeft 92, 75%. */
+export function yearProgress(now = new Date()): {
+  year: number; totalDays: number; elapsed: number; daysLeft: number; percent: number;
+} {
+  const year = now.getFullYear();
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const totalDays = leap ? 366 : 365;
+  const jan1 = new Date(year, 0, 1).getTime();
+  const today = new Date(year, now.getMonth(), now.getDate()).getTime();
+  const dayOfYear = Math.round((today - jan1) / 86400000) + 1;
+  const elapsed = dayOfYear - 1;
+  return {
+    year,
+    totalDays,
+    elapsed,
+    daysLeft: totalDays - dayOfYear + 1,
+    percent: Math.round((elapsed / totalDays) * 100),
+  };
+}
 
 export interface WidgetVariantMeta {
   id: WidgetVariant;
@@ -69,13 +95,29 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     shows: 'The next 3 upcoming events, each with its D-number.',
     androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Next up.',
   },
+  {
+    id: 'yearDots',
+    widgetName: 'MidnightYearDots',
+    title: 'Year dots — 2×2',
+    cells: '2×2',
+    shows: 'One dot per day of the year: dim dots are days already passed, bright dots are the days still left, plus the year and "N days left" underneath — the dot widget from the reference screenshot.',
+    androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Year dots.',
+  },
+  {
+    id: 'yearLock',
+    widgetName: 'MidnightYearLock',
+    title: 'Year left (lock style) — 2×1',
+    cells: '2×1',
+    shows: '"N days left · P% completed · YYYY" — the lock-screen text from the reference screenshot. On iPhone this is a real Lock Screen widget (accessory size); on Android it is a compact home widget, and on Samsung phones it can be placed on the lock screen via Good Lock → LockStar (stock Android itself does not allow lock-screen widgets).',
+    androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Year left. Samsung: Good Lock → LockStar → add it to the lock screen.',
+  },
 ];
 
 export function widgetVariantMeta(id: WidgetVariant): WidgetVariantMeta {
   return WIDGET_VARIANTS.find((v) => v.id === id) ?? WIDGET_VARIANTS[1];
 }
 
-/** Props pushed to each widget definition, from the snapshot only. */
+/** Props pushed to each widget definition: from the snapshot for event widgets, from today's date for the year widgets. */
 export function widgetVariantProps(snapshot: WidgetSnapshot | null, variant: WidgetVariant): Record<string, unknown> {
   const pinned = snapshot?.pinned ?? null;
   const upcoming = snapshot?.upcoming ?? [];
@@ -105,5 +147,12 @@ export function widgetVariantProps(snapshot: WidgetSnapshot | null, variant: Wid
       return {
         items: upcoming.slice(0, 3).map((u) => ({ title: u.title, label: u.label, dateISO: u.dateISO })),
       };
+    case 'yearDots':
+    case 'yearLock':
+      // Date-derived, not snapshot-derived: the year count is correct
+      // even with no events at all. It refreshes whenever the app
+      // pushes a snapshot (opening the app / pinning an event) —
+      // widgets do not re-compute on their own at midnight.
+      return { ...yearProgress() };
   }
 }

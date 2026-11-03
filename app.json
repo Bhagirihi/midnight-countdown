@@ -99,10 +99,47 @@
                 "minHeight": 180,
                 "initialLayout": "./src/widgets/MidnightNextUp.tsx"
               }
+            },
+            {
+              "name": "MidnightYearDots",
+              "displayName": "A Day Away — Year dots",
+              "description": "One dot per day of the year: bright dots are the days still left, plus the year and days left.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemLarge"
+                ],
+                "initialLayout": "./src/widgets/MidnightYearDots.tsx"
+              },
+              "android": {
+                "targetCellWidth": 2,
+                "targetCellHeight": 2,
+                "minWidth": 180,
+                "minHeight": 180,
+                "initialLayout": "./src/widgets/MidnightYearDots.tsx"
+              }
+            },
+            {
+              "name": "MidnightYearLock",
+              "displayName": "A Day Away — Year left",
+              "description": "Days left in the year with percent completed — a Lock Screen widget on iPhone, a compact home widget on Android.",
+              "ios": {
+                "supportedFamilies": [
+                  "accessoryRectangular"
+                ],
+                "initialLayout": "./src/widgets/MidnightYearLock.tsx"
+              },
+              "android": {
+                "targetCellWidth": 2,
+                "targetCellHeight": 1,
+                "minWidth": 180,
+                "minHeight": 110,
+                "initialLayout": "./src/widgets/MidnightYearLock.tsx"
+              }
             }
           ]
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "scheme": "a-day-away",
     "slug": "a-day-away",

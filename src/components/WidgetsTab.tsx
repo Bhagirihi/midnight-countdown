@@ -2,10 +2,11 @@
 // was removed to de-congest navigation). Nothing here pins anything
 // in Expo Go: expo-widgets is not available there, and stock Android
 // has not supported third-party lock-screen widgets since Android 5.
-// What this screen DOES do: lets the user pick one of four real
-// Android home-screen widget variants (definitions in src/widgets/,
-// config in app.json), pin an event, and preview the snapshot those
-// widgets read after a dev build (prebuild + rebuild).
+// What this screen DOES do: lets the user pick one of six real
+// widget variants (definitions in src/widgets/, config in app.json),
+// pin an event, and preview the snapshot those widgets read after a
+// dev build (prebuild + rebuild). The two year variants need no
+// pinned event: their numbers come from today's date.
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../lib/theme';
 import type { CountdownEvent, Settings, WidgetSnapshot } from '../lib/events';
@@ -34,10 +35,13 @@ export default function WidgetsTab({
         your home screen → Widgets → A Day Away to add one.
       </Text>
       <Text style={styles.banner2}>
-        ANDROID LOCK SCREEN: stock Android has not supported
-        third-party lock-screen widgets since Android 5. There is no
-        Android lock-screen widget to offer here — lock-screen widgets
-        are an iOS WidgetKit concept, not a stock-Android one.
+        LOCK SCREEN: iPhone — the “Year left” widget is a real Lock
+        Screen widget (long-press the lock screen → Customize → Add
+        Widgets). Stock Android phones cannot host third-party
+        lock-screen widgets (not supported since Android 5) — on
+        Android “Year left” is a compact home widget instead, except
+        on Samsung phones, where Good Lock → LockStar can place it on
+        the lock screen.
       </Text>
 
       <Text style={styles.sub}>Choose a widget size</Text>

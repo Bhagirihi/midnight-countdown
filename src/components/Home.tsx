@@ -271,6 +271,7 @@ export default function Home({
       <SafeAreaView style={styles.wrap} edges={['top', 'bottom']}>
         <EventDetail
           event={event}
+          eventCount={events.length}
           stories={stories.filter((s) => s.eventId === event.id)}
           giftPlan={giftPlans.find((p) => p.eventId === event.id) ?? emptyGiftPlan(event.id)}
           onSaveGiftPlan={persistGiftPlan}

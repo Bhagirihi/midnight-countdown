@@ -18,7 +18,7 @@ export interface WizardDraft {
   preset: WizardPreset;
   title: string;
   dateISO: string;
-  widgetVariant: 'small' | 'medium' | 'large' | 'list';
+  widgetVariant: 'small' | 'medium' | 'large' | 'list' | 'yearDots' | 'yearLock';
 }
 
 export function wizardDraftToEventInput(draft: WizardDraft, today: string): {

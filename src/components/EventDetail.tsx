@@ -8,6 +8,8 @@ import {
   type CountdownEvent, type GiftPlan, type StoryEntry,
 } from '../lib/events';
 import { pickPhotos } from '../lib/photos';
+import { maybeAskForReview } from '../lib/review';
+import ShareCard from './ShareCard';
 
 const FONT_FAMILY: Record<string, string> = {
   grotesk: fonts.grotesk,
@@ -22,9 +24,10 @@ export function effectBorder(effect: string, color: string): { borderColor: stri
 }
 
 export default function EventDetail({
-  event, stories, giftPlan, onBack, onEdit, onDelete, onAddStory, onDeleteStory, onSchedule, onSaveGiftPlan,
+  event, eventCount, stories, giftPlan, onBack, onEdit, onDelete, onAddStory, onDeleteStory, onSchedule, onSaveGiftPlan,
 }: {
   event: CountdownEvent;
+  eventCount: number;
   stories: StoryEntry[];
   giftPlan: GiftPlan;
   onBack: () => void;
@@ -74,6 +77,8 @@ export default function EventDetail({
       const Clipboard = await import('expo-clipboard');
       await Clipboard.setStringAsync(text);
       setNotice('Copied to clipboard.');
+      // Right moment: the app just helped the user say something nice.
+      await maybeAskForReview(eventCount);
     } catch {
       setNotice('Copy is not available on this device. Long-press the text to copy it manually.');
     }
@@ -90,7 +95,9 @@ export default function EventDetail({
       `Total pledged: ${plan.contributors.reduce((s, c) => s + c.amount, 0)}`,
     ];
     try {
-      await Share.share({ message: lines.join('\n') });
+      const result = await Share.share({ message: lines.join('\n') });
+      // Right moment, but only if the user actually shared (not dismissed).
+      if (result.action === Share.sharedAction) await maybeAskForReview(eventCount);
     } catch {
       setNotice('Sharing is not available on this device.');
     }
@@ -119,6 +126,8 @@ export default function EventDetail({
         {event.notes ? <Text style={styles.meta}>Notes: {event.notes}</Text> : null}
         {info.isToday ? <Text style={styles.today}>Today is the day.</Text> : null}
       </View>
+
+      <ShareCard event={event} label={info.label} targetISO={info.targetISO} eventCount={eventCount} />
 
       {ms.length > 0 ? (
         <View style={styles.section}>

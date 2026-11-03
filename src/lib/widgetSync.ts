@@ -8,7 +8,7 @@
 // the props for its size (see widgets.ts), so the widget gallery shows
 // real data, not the initial placeholder props.
 //
-// NOTE: the four imports below are literal paths on purpose — Metro
+// NOTE: the imports below are literal paths on purpose — Metro
 // cannot resolve a variable import path, so a loop over path strings
 // would silently fail to bundle the widget modules.
 import type { WidgetSnapshot } from './events';
@@ -31,6 +31,13 @@ export async function syncWidgets(
     large.updateSnapshot(widgetVariantProps(snapshot, 'large'));
     const list = (await import('../widgets/MidnightNextUp')).default as unknown as Pusher;
     list.updateSnapshot(widgetVariantProps(snapshot, 'list'));
+    // Year widgets need no event snapshot — their props are the
+    // current date's year progress — but they are pushed here so
+    // they refresh whenever the app syncs widgets.
+    const yearDots = (await import('../widgets/MidnightYearDots')).default as unknown as Pusher;
+    yearDots.updateSnapshot(widgetVariantProps(snapshot, 'yearDots'));
+    const yearLock = (await import('../widgets/MidnightYearLock')).default as unknown as Pusher;
+    yearLock.updateSnapshot(widgetVariantProps(snapshot, 'yearLock'));
     return { updated: true, note: 'Widget snapshots pushed (dev build only — in Expo Go widgets cannot run).' };
   } catch {
     return { updated: false, note: 'Widgets need a dev build: expo-widgets is not available in Expo Go, so nothing was pushed.' };

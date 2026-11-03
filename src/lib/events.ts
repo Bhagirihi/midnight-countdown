@@ -90,7 +90,7 @@ export interface Settings {
   milestoneNotifications: boolean;
   pinnedEventId: string | null;
   /** Which widget variant the user last chose in Widgets / wizard setup. */
-  widgetVariant: 'small' | 'medium' | 'large' | 'list';
+  widgetVariant: 'small' | 'medium' | 'large' | 'list' | 'yearDots' | 'yearLock';
   displayName: string;
   appLockEnabled: boolean;
   /** Simple salted hash of the app PIN, never the PIN itself. Null = no PIN set. */
@@ -207,7 +207,7 @@ export async function loadSettings(): Promise<Settings> {
         remindersEnabled: p.remindersEnabled !== false,
         milestoneNotifications: p.milestoneNotifications === true,
         pinnedEventId: p.pinnedEventId ?? null,
-        widgetVariant: (['small', 'medium', 'large', 'list'] as const).includes(p.widgetVariant as never) ? (p.widgetVariant as Settings['widgetVariant']) : 'medium',
+        widgetVariant: (['small', 'medium', 'large', 'list', 'yearDots', 'yearLock'] as const).includes(p.widgetVariant as never) ? (p.widgetVariant as Settings['widgetVariant']) : 'medium',
         displayName: p.displayName ?? '',
         appLockEnabled: p.appLockEnabled === true,
         appLockPinHash: p.appLockPinHash ?? null,
