@@ -17,9 +17,8 @@ import { pickSinglePhoto } from '../lib/photos';
 import DateCalendar from './DateCalendar';
 
 export default function FirstEventWizard({
-  initialPhoto = null, onFinish, onSkip, onBindBack,
+  onFinish, onSkip, onBindBack,
 }: {
-  initialPhoto?: string | null;
   onFinish: (draft: WizardDraft) => void;
   onSkip: () => void;
   onBindBack?: (fn: (() => boolean) | null) => void;
@@ -31,7 +30,7 @@ export default function FirstEventWizard({
   const [mode, setMode] = useState<'date' | 'days'>('date');
   const [dateText, setDateText] = useState('');
   const [daysText, setDaysText] = useState('30');
-  const [photoUri, setPhotoUri] = useState<string | null>(initialPhoto);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [error, setError] = useState('');
   // In-app calendar picker for Date mode — pure JS, no native
   // date-picker dependency, so it works in Expo Go too. Opening it

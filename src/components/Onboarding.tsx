@@ -1,56 +1,27 @@
-import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts, labelStyle } from '../lib/theme';
-import { pickSinglePhoto } from '../lib/photos';
 import BrandMark from './BrandMark';
 
-export default function Onboarding({ onDone }: { onDone: (photoUri: string | null) => void }) {
-  const [step, setStep] = useState<1 | 2>(1);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-
+// Single intro screen. No photo here: a photo belongs to an event, so
+// it is asked only in the first-event wizard, as its last step, after
+// the event itself is set up.
+export default function Onboarding({ onDone }: { onDone: () => void }) {
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.column}>
-        {step === 1 ? (
-          <View>
-            <View style={styles.brandRow}>
-              <Image source={require('../../assets/icon.png')} style={styles.logo} />
-              <BrandMark align="left" />
-            </View>
-            <Text style={styles.numeral}>D-13</Text>
-            <Text style={styles.title}>The days that matter,{'\n'}counted.</Text>
-          </View>
-        ) : (
-          <View>
-            <View style={styles.brandRow}>
-              <Image source={require('../../assets/icon.png')} style={styles.logo} />
-              <BrandMark align="left" />
-            </View>
-            <Text style={styles.title}>Add a photo?</Text>
-            <Text style={styles.lead}>Optional. It shows on your first event.</Text>
-            {photoUri ? (
-              <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
-            ) : null}
-            <Pressable
-              onPress={async () => {
-                const uri = await pickSinglePhoto();
-                if (uri) setPhotoUri(uri);
-              }}
-              hitSlop={8}
-              style={styles.photoAction}
-            >
-              <Text style={styles.photoActionText}>{photoUri ? 'CHANGE PHOTO' : 'ADD PHOTO'}</Text>
-            </Pressable>
-          </View>
-        )}
         <View>
-          {step === 1 ? <Text style={styles.copy}>One date. A number you can keep.</Text> : null}
-          <Pressable
-            style={styles.primary}
-            onPress={() => (step === 1 ? setStep(2) : onDone(photoUri))}
-          >
-            <Text style={styles.primaryText}>{step === 1 ? 'BEGIN' : 'CONTINUE'}</Text>
+          <View style={styles.brandRow}>
+            <Image source={require('../../assets/icon.png')} style={styles.logo} />
+            <BrandMark align="left" />
+          </View>
+          <Text style={styles.numeral}>D-13</Text>
+          <Text style={styles.title}>The days that matter,{'\n'}counted.</Text>
+        </View>
+        <View>
+          <Text style={styles.copy}>One date. A number you can keep.</Text>
+          <Pressable style={styles.primary} onPress={onDone}>
+            <Text style={styles.primaryText}>BEGIN</Text>
           </Pressable>
         </View>
       </View>
@@ -78,16 +49,6 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     marginTop: 12,
   },
-  lead: {
-    fontFamily: fonts.jakartaMedium,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.onSurfaceVariant,
-    marginTop: 12,
-  },
-  photo: { width: '100%', height: 160, borderRadius: 16, marginTop: 20, backgroundColor: colors.surface },
-  photoAction: { alignSelf: 'flex-start', marginTop: 16 },
-  photoActionText: { ...labelStyle, fontSize: 12, letterSpacing: 1.8, color: colors.primary },
   copy: {
     fontFamily: fonts.jakartaMedium,
     fontSize: 15,

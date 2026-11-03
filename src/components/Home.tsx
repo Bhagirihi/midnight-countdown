@@ -50,10 +50,9 @@ const FONT_FAMILY: Record<string, string> = {
 };
 
 export default function Home({
-  authLabel, starterPhoto, onReplayOnboarding, onSignOut, onResetFromZero,
+  authLabel, onReplayOnboarding, onSignOut, onResetFromZero,
 }: {
   authLabel: string;
-  starterPhoto: string | null;
   onReplayOnboarding: () => void;
   onSignOut: () => void;
   onResetFromZero: () => void;
@@ -297,7 +296,6 @@ export default function Home({
   if (showWizard && events.length === 0) {
     return (
       <FirstEventWizard
-        initialPhoto={starterPhoto}
         onFinish={finishWizard}
         onSkip={() => setShowWizard(false)}
         onBindBack={(fn) => { wizardBackRef.current = fn; }}

@@ -37,7 +37,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('splash');
   const [authChoice, setAuthChoice] = useState<AuthChoice>(null);
   const [localEmail, setLocalEmail] = useState<string | null>(null);
-  const [starterPhoto, setStarterPhoto] = useState<string | null>(null);
+
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [nextScreen, setNextScreen] = useState<Screen | null>(null);
 
@@ -98,8 +98,7 @@ export default function App() {
     setScreen('home');
   }, []);
 
-  const finishOnboarding = useCallback(async (photoUri: string | null) => {
-    setStarterPhoto(photoUri);
+  const finishOnboarding = useCallback(async () => {
     await markOnboardingSeen();
     setScreen(authChoice ? 'home' : 'auth');
   }, [authChoice]);
@@ -136,7 +135,6 @@ export default function App() {
       ) : (
         <Home
           authLabel={authChoice === 'local-email' && localEmail ? localEmail.toUpperCase() : 'GUEST'}
-          starterPhoto={starterPhoto}
           onReplayOnboarding={doReplayOnboarding}
           onSignOut={doSignOut}
           onResetFromZero={doResetFromZero}
