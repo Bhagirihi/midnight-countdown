@@ -19,7 +19,7 @@ export interface WizardPreset {
 }
 
 export const WIZARD_PRESETS: WizardPreset[] = [
-  { id: 'birthday', label: 'Birthday', prefillTitle: 'Birthday', category: 'Birthday', repeat: 'yearly', color: '#F7A5A5', icon: 'cake', sticker: '🎂' },
+  { id: 'birthday', label: 'Birthday', prefillTitle: 'Birthday', category: 'Birthday', repeat: 'yearly', color: '#F7A5A5', icon: 'gift', sticker: '🎂' },
   { id: 'anniversary', label: 'Anniversary', prefillTitle: 'Anniversary', category: 'Anniversary', repeat: 'yearly', color: '#8E99F3', icon: 'heart', sticker: '❤️' },
   { id: 'wedding', label: 'Wedding', prefillTitle: 'Wedding', category: 'Wedding', repeat: 'none', color: '#FCE570', icon: 'heart', sticker: '💍' },
   { id: 'holiday', label: 'Holiday', prefillTitle: 'Holiday', category: 'Holiday', repeat: 'yearly', color: '#4ADE80', icon: 'leaf', sticker: '🌸' },

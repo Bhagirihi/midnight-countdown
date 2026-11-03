@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../lib/theme';
 import { birthstone, countdownInfo, milestones, parseDate, todayISO, turningInfo, zodiacSign } from '../lib/dates';
 import {
-  MAX_STORY_PHOTOS, capPhotos, emptyGiftPlan, greetingTemplates, newId, remainingBudget, spentTotal,
+  MAX_STORY_PHOTOS, capPhotos, emptyGiftPlan, greetingTemplates, newId, remainingBudget, safeIcon, spentTotal,
   type CountdownEvent, type GiftPlan, type StoryEntry,
 } from '../lib/events';
 import { pickPhotos } from '../lib/photos';
@@ -49,6 +49,17 @@ export default function EventDetail({
   const [storyDate, setStoryDate] = useState(today);
   const [storyPhotos, setStoryPhotos] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
+  // One screen, four tabs — the old layout stacked every section
+  // (share, milestones, contact, gifts, group gifts, greetings,
+  // fun facts, story) into a single endless scroll. Tabs keep every
+  // feature, but only one group is on screen at a time.
+  const [tab, setTab] = useState<'overview' | 'gifts' | 'greetings' | 'story'>('overview');
+  const TABS = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'gifts', label: 'Gifts' },
+    { id: 'greetings', label: 'Greetings' },
+    { id: 'story', label: 'Story' },
+  ] as const;
   const [plan, setPlan] = useState<GiftPlan>(giftPlan ?? emptyGiftPlan(event.id));
   const [ideaItem, setIdeaItem] = useState('');
   const [ideaNotes, setIdeaNotes] = useState('');
@@ -104,13 +115,17 @@ export default function EventDetail({
   };
 
   return (
-    <ScrollView style={styles.wrap} contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+    <ScrollView
+      style={styles.wrap}
+      contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
+      stickyHeaderIndices={[2]}
+    >
       <Pressable onPress={onBack}><Text style={styles.back}>← Back</Text></Pressable>
 
       <View style={[styles.hero, effectBorder(event.effect, event.color)]}>
         {event.photoUri ? <Image source={{ uri: event.photoUri }} style={styles.heroPhoto} /> : null}
         <View style={styles.heroRow}>
-          <Ionicons name={event.icon as never} size={28} color={event.color} />
+          <Ionicons name={safeIcon(event.icon) as never} size={28} color={event.color} />
           {event.sticker ? <Text style={styles.sticker}>{event.sticker}</Text> : null}
         </View>
         <Text style={[styles.big, { fontFamily: FONT_FAMILY[event.font] ?? fonts.grotesk }]}>{info.label}</Text>
@@ -127,6 +142,18 @@ export default function EventDetail({
         {info.isToday ? <Text style={styles.today}>Today is the day.</Text> : null}
       </View>
 
+      <View style={styles.tabBar}>
+        {TABS.map((t) => (
+          <Pressable key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnOn]} onPress={() => setTab(t.id)}>
+            <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextOn]}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+
+      {tab === 'overview' && (
+      <>
       <ShareCard event={event} label={info.label} targetISO={info.targetISO} eventCount={eventCount} />
 
       {ms.length > 0 ? (
@@ -199,9 +226,19 @@ export default function EventDetail({
       >
         <Text style={styles.secondaryBtnText}>Schedule D-7 / D-3 / D-1 / day-of reminders</Text>
       </Pressable>
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
       <Text style={styles.hint}>Reminders need a dev build to actually fire. In Expo Go they may be scheduled but not delivered.</Text>
 
+      {zodiac && stone ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Just for fun</Text>
+          <Text style={styles.rowText}>⭐ {zodiac.sign} ({zodiac.range}) · Birthstone: {stone}</Text>
+          <Text style={styles.hint}>Fun only — based on the event month/day. No personality traits are claimed as fact.</Text>
+        </View>
+      ) : null}
+      </>)}
+
+      {tab === 'gifts' && (
+      <>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Gift planning — local only</Text>
         <Text style={styles.hint}>Ideas, wishlist notes, and a budget tracker for this person/event. No shopping checkout and no affiliate links — a link here is just text you saved.</Text>
@@ -304,6 +341,10 @@ export default function EventDetail({
         </Pressable>
       </View>
 
+      </>)}
+
+      {tab === 'greetings' && (
+      <>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Greeting templates</Text>
         <Text style={styles.hint}>Tap Copy on any template — the message is copied, nothing is sent by the app.</Text>
@@ -320,14 +361,10 @@ export default function EventDetail({
         })}
       </View>
 
-      {zodiac && stone ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Just for fun</Text>
-          <Text style={styles.rowText}>⭐ {zodiac.sign} ({zodiac.range}) · Birthstone: {stone}</Text>
-          <Text style={styles.hint}>Fun only — based on the event month/day. No personality traits are claimed as fact.</Text>
-        </View>
-      ) : null}
+      </>)}
 
+      {tab === 'story' && (
+      <>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Story — mini-diary for this event</Text>
         <Text style={styles.hint}>One entry per date, with text and up to {MAX_STORY_PHOTOS} photos. Photos stay on this device only.</Text>
@@ -378,6 +415,7 @@ export default function EventDetail({
           ))
         )}
       </View>
+      </>)}
     </ScrollView>
   );
 }
@@ -394,6 +432,11 @@ const styles = StyleSheet.create({
   banner: { fontFamily: fonts.jakartaBold, fontSize: 16, color: colors.accent, marginTop: 8 },
   meta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4, lineHeight: 18 },
   today: { fontFamily: fonts.jakartaBold, fontSize: 14, color: colors.accent, marginTop: 8 },
+  tabBar: { flexDirection: 'row', gap: 8, backgroundColor: colors.background, paddingVertical: 10, marginTop: 4 },
+  tabBtn: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingVertical: 9, alignItems: 'center' },
+  tabBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tabBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 13 },
+  tabBtnTextOn: { color: colors.background },
   section: { marginTop: 24 },
   sectionTitle: { fontFamily: fonts.grotesk, fontSize: 20, color: colors.onSurface, marginBottom: 8 },
   rowText: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurface, marginTop: 6, lineHeight: 20 },

@@ -20,7 +20,7 @@ import { useRef, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../lib/theme';
-import type { CountdownEvent } from '../lib/events';
+import { safeIcon, type CountdownEvent } from '../lib/events';
 import { maybeAskForReview } from '../lib/review';
 
 export default function ShareCard({
@@ -76,7 +76,7 @@ export default function ShareCard({
       <Text style={styles.hint}>This is exactly what gets sent — an image, not just text. Tap Share card, then pick WhatsApp or any messaging app.</Text>
       <View ref={cardRef} collapsable={false} style={[styles.card, { borderColor: event.color }]}>
         <View style={styles.cardTop}>
-          <Ionicons name={event.icon as never} size={28} color={event.color} />
+          <Ionicons name={safeIcon(event.icon) as never} size={28} color={event.color} />
           {event.sticker ? <Text style={styles.sticker}>{event.sticker}</Text> : null}
         </View>
         <Text style={styles.big}>{label}</Text>

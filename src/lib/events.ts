@@ -155,9 +155,18 @@ export const EVENT_COLORS = [
 
 export const EVENT_ICONS = [
   'calendar', 'heart', 'gift', 'airplane', 'musical-notes', 'book',
-  'fitness', 'leaf', 'star', 'cake', 'home', 'car',
+  'fitness', 'leaf', 'star', 'home', 'car',
   'trophy', 'moon', 'rocket', 'medkit',
 ] as const;
+
+/** Ionicons has no 'cake' glyph — an event saved with it renders as
+ *  a literal '?' in the app (seen on a Birthday event). Old events
+ *  may still carry 'cake', so render them as 'gift' instead of
+ *  changing stored data. New events can no longer pick 'cake'
+ *  (removed from EVENT_ICONS and the birthday preset). */
+export function safeIcon(name: string): string {
+  return name === 'cake' ? 'gift' : name;
+}
 
 export const EVENT_STICKERS = ['', '🎉', '❤️', '✈️', '🎂', '🌸', '⭐', '🔥', '🎵', '📚', '💪', '🌙'] as const;
 

@@ -9,7 +9,7 @@ import { syncWidgets } from '../lib/widgetSync';
 import type { WidgetVariant } from '../lib/widgets';
 import {
   RECOMMENDED_EVENTS, capPhotos, emptyGiftPlan, exampleEvents, loadComments, loadEvents, loadGiftPlans,
-  loadSettings, loadStories, loadWidgetSnapshot, newId, saveComments, saveEvents, saveGiftPlans,
+  loadSettings, loadStories, loadWidgetSnapshot, newId, safeIcon, saveComments, saveEvents, saveGiftPlans,
   saveSettings, saveStories, writeWidgetSnapshot,
   type CountdownEvent, type GiftPlan, type LocalComment, type Settings, type StoryEntry, type WidgetSnapshot,
 } from '../lib/events';
@@ -156,7 +156,7 @@ export default function Home({
     return (
       <Pressable key={e.id} onPress={() => setView({ kind: 'detail', id: e.id })} style={[styles.card, effectBorder(e.effect, e.color)]}>
         <View style={styles.cardRow}>
-          <Ionicons name={e.icon as never} size={20} color={e.color} />
+          <Ionicons name={safeIcon(e.icon) as never} size={20} color={e.color} />
           {e.sticker ? <Text style={styles.sticker}>{e.sticker}</Text> : null}
           <Text style={styles.cardCategory} numberOfLines={1}>{e.category.toUpperCase()}{e.repeat !== 'none' ? ` · ${e.repeat}` : ''}</Text>
         </View>

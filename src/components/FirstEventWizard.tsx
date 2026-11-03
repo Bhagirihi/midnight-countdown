@@ -15,7 +15,7 @@ import {
   type WizardDraft, type WizardPreset,
 } from '../lib/wizard';
 import { WIDGET_VARIANTS, type WidgetVariant } from '../lib/widgets';
-import { requestLocationPermission, requestNotificationPermission } from '../lib/permissions';
+import { requestNotificationPermission } from '../lib/permissions';
 
 export default function FirstEventWizard({
   onFinish, onSkip,
@@ -32,7 +32,7 @@ export default function FirstEventWizard({
   const [daysText, setDaysText] = useState('30');
   const [error, setError] = useState('');
   const [notifStatus, setNotifStatus] = useState('');
-  const [locStatus, setLocStatus] = useState('');
+
   const [variant, setVariant] = useState<WidgetVariant>('medium');
   // In-app calendar picker for Date mode — pure JS, no native
   // date-picker dependency, so it works in Expo Go too. Opening it
@@ -255,12 +255,13 @@ export default function FirstEventWizard({
 
         {step === 4 ? (
           <>
-            <Text style={styles.heading}>A couple of permissions</Text>
+            <Text style={styles.heading}>Notifications</Text>
             <Text style={styles.body}>
-              Both are optional and skippable — saying no blocks nothing.
-              Notifications are for D-7 / D-3 / D-1 reminders. Location is
-              NOT used by any feature right now; asking only records your
-              preference for possible future use.
+              Optional and skippable — saying no blocks nothing. Tapping
+              the button below opens your phone&apos;s own permission
+              dialog: allow it and D-7 / D-3 / D-1 reminders can be
+              scheduled for this event. No location permission is asked
+              anywhere in this app, because no feature uses location.
             </Text>
             <Pressable
               style={styles.secondaryBtn}
@@ -269,13 +270,6 @@ export default function FirstEventWizard({
               <Text style={styles.secondaryBtnText}>Allow notifications</Text>
             </Pressable>
             {notifStatus ? <Text style={styles.body}>{notifStatus}</Text> : null}
-            <Pressable
-              style={styles.secondaryBtn}
-              onPress={async () => setLocStatus(await requestLocationPermission())}
-            >
-              <Text style={styles.secondaryBtnText}>Allow location (optional)</Text>
-            </Pressable>
-            {locStatus ? <Text style={styles.body}>{locStatus}</Text> : null}
             <Pressable style={styles.primaryBtn} onPress={() => setStep(5)}>
               <Text style={styles.primaryBtnText}>Continue</Text>
             </Pressable>
@@ -299,10 +293,12 @@ export default function FirstEventWizard({
               </Pressable>
             ))}
             <Text style={styles.banner}>
-              ANDROID LOCK SCREEN, HONESTLY: stock Android has not supported
-              third-party lock-screen widgets since Android 5, so there is
-              no Android lock-screen widget to add here. Lock-screen widgets
-              are an iOS WidgetKit concept, not a stock-Android one.
+              LOCK SCREEN, HONESTLY: on iPhone the “Year left” widget is a
+              real Lock Screen widget. Stock Android cannot host
+              third-party lock-screen widgets (not supported since
+              Android 5) — there it is a compact home widget, except on
+              Samsung phones, where Good Lock → LockStar can place it on
+              the lock screen.
             </Text>
             <Pressable style={styles.primaryBtn} onPress={finish}>
               <Text style={styles.primaryBtnText}>Create event &amp; go to Home</Text>
