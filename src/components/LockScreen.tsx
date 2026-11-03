@@ -34,7 +34,7 @@ export default function LockScreen({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.kicker}>MIDNIGHT COUNTDOWN</Text>
+      <Text style={styles.kicker}>A DAY AWAY</Text>
       <Text style={styles.heading}>App locked</Text>
       <Text style={styles.body}>
         Unlock with biometrics or your app PIN. This lock lives only on

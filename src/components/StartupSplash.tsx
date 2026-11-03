@@ -11,7 +11,7 @@ export default function StartupSplash() {
     <SafeAreaView style={styles.root}>
       <View style={styles.center}>
         <Image source={require('../../assets/icon.png')} style={styles.icon} />
-        <Text style={styles.name}>MIDNIGHT{'\n'}COUNTDOWN</Text>
+        <Text style={styles.name}>A DAY{'\n'}AWAY</Text>
         <Text style={styles.mono}>D-7 / D-3 / D-1</Text>
       </View>
       <Text style={styles.foot}>EVERY DAY, COUNTED</Text>

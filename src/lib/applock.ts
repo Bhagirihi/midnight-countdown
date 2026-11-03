@@ -43,7 +43,7 @@ export async function authenticateBiometric(): Promise<boolean> {
   try {
     const LA = await import('expo-local-authentication');
     const res = await LA.authenticateAsync({
-      promptMessage: 'Unlock Midnight Countdown',
+      promptMessage: 'Unlock A Day Away',
       fallbackLabel: 'Use device PIN',
       cancelLabel: 'Cancel',
     });

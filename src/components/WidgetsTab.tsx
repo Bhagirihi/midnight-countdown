@@ -31,7 +31,7 @@ export default function WidgetsTab({
         NOT A WORKING WIDGET IN EXPO GO. These Android home-screen
         widgets need a dev build (expo prebuild + rebuild) — in Expo Go
         nothing here pins to any screen. After a dev build, long-press
-        your home screen → Widgets → Midnight Countdown to add one.
+        your home screen → Widgets → A Day Away to add one.
       </Text>
       <Text style={styles.banner2}>
         ANDROID LOCK SCREEN: stock Android has not supported

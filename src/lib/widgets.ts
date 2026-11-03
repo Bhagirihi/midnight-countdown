@@ -43,7 +43,7 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     title: 'Small — 1×1',
     cells: '1×1',
     shows: 'Big D-number + event title for the pinned event.',
-    androidHowTo: 'Long-press your home screen → Widgets → Midnight Countdown → Small.',
+    androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Small.',
   },
   {
     id: 'medium',
@@ -51,7 +51,7 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     title: 'Medium — 2×1',
     cells: '2×1',
     shows: 'D-number + title + next date for the pinned event.',
-    androidHowTo: 'Long-press your home screen → Widgets → Midnight Countdown → Medium.',
+    androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Medium.',
   },
   {
     id: 'large',
@@ -59,7 +59,7 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     title: 'Large — 2×2',
     cells: '2×2',
     shows: 'Pinned event (D-number + title + date), its next milestone and next story date when they exist, plus the next upcoming event.',
-    androidHowTo: 'Long-press your home screen → Widgets → Midnight Countdown → Large.',
+    androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Large.',
   },
   {
     id: 'list',
@@ -67,7 +67,7 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     title: 'Next up list — 4×2',
     cells: '4×2',
     shows: 'The next 3 upcoming events, each with its D-number.',
-    androidHowTo: 'Long-press your home screen → Widgets → Midnight Countdown → Next up.',
+    androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Next up.',
   },
 ];
 

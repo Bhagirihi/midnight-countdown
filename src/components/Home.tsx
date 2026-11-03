@@ -416,7 +416,7 @@ export default function Home({
     <SafeAreaView style={styles.wrap} edges={['top', 'bottom']}>
       {tab === 'home' ? (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
-          <Text style={styles.greeting}>MIDNIGHT COUNTDOWN</Text>
+          <Text style={styles.greeting}>A DAY AWAY</Text>
           {/* Dashboard top shows a Profile icon (not the settings gear):
               tapping it opens the Profile tab. Settings still has its
               own footer tab, so nothing is lost. */}

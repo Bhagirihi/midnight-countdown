@@ -28,7 +28,7 @@
     "typescript": "~6.0.3"
   },
   "main": "index.js",
-  "name": "midnight-countdown",
+  "name": "a-day-away",
   "private": true,
   "scripts": {
     "android": "expo start --android",

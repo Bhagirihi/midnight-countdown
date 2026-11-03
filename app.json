@@ -5,14 +5,14 @@
         "backgroundColor": "#0F0F11",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
-      "package": "com.midnightcountdown.app"
+      "package": "com.adayaway.app"
     },
     "icon": "./assets/icon.png",
     "ios": {
-      "bundleIdentifier": "com.midnightcountdown.app",
+      "bundleIdentifier": "com.adayaway.app",
       "supportsTablet": true
     },
-    "name": "Midnight Countdown",
+    "name": "A Day Away",
     "orientation": "portrait",
     "plugins": [
       [
@@ -30,7 +30,7 @@
           "widgets": [
             {
               "name": "MidnightSmall",
-              "displayName": "Midnight Countdown — Small",
+              "displayName": "A Day Away — Small",
               "description": "Big D-number and title for your pinned countdown.",
               "ios": {
                 "supportedFamilies": [
@@ -48,7 +48,7 @@
             },
             {
               "name": "MidnightMedium",
-              "displayName": "Midnight Countdown — Medium",
+              "displayName": "A Day Away — Medium",
               "description": "D-number, title and next date for your pinned countdown.",
               "ios": {
                 "supportedFamilies": [
@@ -66,7 +66,7 @@
             },
             {
               "name": "MidnightLarge",
-              "displayName": "Midnight Countdown — Large",
+              "displayName": "A Day Away — Large",
               "description": "Pinned countdown with next milestone, next story date and next event.",
               "ios": {
                 "supportedFamilies": [
@@ -84,7 +84,7 @@
             },
             {
               "name": "MidnightNextUp",
-              "displayName": "Midnight Countdown — Next up",
+              "displayName": "A Day Away — Next up",
               "description": "Your next three upcoming events with their D-numbers.",
               "ios": {
                 "supportedFamilies": [
@@ -104,8 +104,8 @@
         }
       ]
     ],
-    "scheme": "midnight-countdown",
-    "slug": "midnight-countdown",
+    "scheme": "a-day-away",
+    "slug": "a-day-away",
     "userInterfaceStyle": "dark",
     "version": "1.0.0",
     "web": {

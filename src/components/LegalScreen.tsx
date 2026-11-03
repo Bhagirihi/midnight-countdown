@@ -5,9 +5,9 @@ import { colors, fonts } from '../lib/theme';
 // build: everything is on-device, there is no server, no account, and
 // no data leaves the device. No privacy-policy URL, company address,
 // or legal entity is invented — there is none to state.
-const TERMS = `Terms of Use — Midnight Countdown
+const TERMS = `Terms of Use — A Day Away
 
-Midnight Countdown is a local countdown tracker. You use it on your
+A Day Away is a local countdown tracker. You use it on your
 own device, for your own events.
 
 What the app does
@@ -39,7 +39,7 @@ Changes
   terms will be updated in the app before that build asks for anything
   new.`;
 
-const PRIVACY = `Privacy Policy — Midnight Countdown
+const PRIVACY = `Privacy Policy — A Day Away
 
 Short version: this app keeps your data on your device. It does not
 send it anywhere, because there is no server to send it to.
