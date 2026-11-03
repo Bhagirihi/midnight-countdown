@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../lib/theme';
@@ -153,17 +153,28 @@ export default function Home({
   // grid — one card definition, so a change lands everywhere.
   const renderCard = ({ e, info }: { e: CountdownEvent; info: ReturnType<typeof countdownInfo> }) => {
     const turning = turningInfo(e.dateISO, e.category, e.repeat, today);
+    // Photo cards (the pattern every top countdown app uses): a picked
+    // photo sits behind the number with a dark scrim, so the card looks
+    // like the event instead of a plain tile. No photo → plain tile.
     return (
       <Pressable key={e.id} onPress={() => setView({ kind: 'detail', id: e.id })} style={[styles.card, effectBorder(e.effect, e.color)]}>
-        <View style={styles.cardRow}>
-          <Ionicons name={safeIcon(e.icon) as never} size={20} color={e.color} />
-          {e.sticker ? <Text style={styles.sticker}>{e.sticker}</Text> : null}
-          <Text style={styles.cardCategory} numberOfLines={1}>{e.category.toUpperCase()}{e.repeat !== 'none' ? ` · ${e.repeat}` : ''}</Text>
+        {e.photoUri ? (
+          <>
+            <Image source={{ uri: e.photoUri }} style={styles.cardPhoto} />
+            <View style={styles.cardScrim} />
+          </>
+        ) : null}
+        <View style={styles.cardContent}>
+          <View style={styles.cardRow}>
+            <Ionicons name={safeIcon(e.icon) as never} size={20} color={e.color} />
+            {e.sticker ? <Text style={styles.sticker}>{e.sticker}</Text> : null}
+            <Text style={styles.cardCategory} numberOfLines={1}>{e.category.toUpperCase()}{e.repeat !== 'none' ? ` · ${e.repeat}` : ''}</Text>
+          </View>
+          <Text style={[styles.cardBig, { fontFamily: FONT_FAMILY[e.font] ?? fonts.grotesk }]}>{info.label}</Text>
+          <Text style={styles.cardTitle} numberOfLines={2}>{e.title}</Text>
+          {turning ? <Text style={styles.cardBanner}>🎉 {turning.label}</Text> : null}
+          <Text style={styles.cardMeta}>{e.type === 'countup' ? `Since ${e.dateISO}` : info.targetISO}{info.isToday ? ' · Today!' : ''}</Text>
         </View>
-        <Text style={[styles.cardBig, { fontFamily: FONT_FAMILY[e.font] ?? fonts.grotesk }]}>{info.label}</Text>
-        <Text style={styles.cardTitle} numberOfLines={2}>{e.title}</Text>
-        {turning ? <Text style={styles.cardBanner}>🎉 {turning.label}</Text> : null}
-        <Text style={styles.cardMeta}>{e.type === 'countup' ? `Since ${e.dateISO}` : info.targetISO}{info.isToday ? ' · Today!' : ''}</Text>
       </Pressable>
     );
   };
@@ -320,7 +331,7 @@ export default function Home({
               kind: 'editor',
               event: {
                 id: newId(), title: c.name, dateISO: c.birthdayISO ?? today, type: 'countdown',
-                repeat: 'yearly', category: 'Birthday', color: '#F7A5A5', icon: 'cake', sticker: '🎂',
+                repeat: 'yearly', category: 'Birthday', color: '#F7A5A5', icon: 'gift', sticker: '🎂',
                 font: 'grotesk', effect: 'none', photoUri: null, createdAt: today,
                 relationship: 'Other', contactName: c.name, contactPhone: c.phone,
                 contactEmail: c.email, contactPhotoUri: c.imageUri, notes: c.birthdayYearKnown ? '' : 'Year not on file in contacts — check the date.',
@@ -427,7 +438,36 @@ export default function Home({
               <Ionicons name="person-circle-outline" size={28} color={colors.onSurface} />
             </Pressable>
           </View>
-          <Text style={styles.meta}>{authLabel} · {events.length} event{events.length === 1 ? '' : 's'} · offline, on this device</Text>
+          <Text style={styles.meta}>{events.length} event{events.length === 1 ? '' : 's'} · offline, on this device</Text>
+
+          {filter === 'all' && !query.trim() ? (() => {
+            // Next-up hero (the pattern every top app leads with): the
+            // nearest upcoming event, large, at the top — not buried in
+            // a bucket grid. Tapping it opens the same detail screen.
+            const nextUp = filtered
+              .filter(({ e, info }) => e.type === 'countdown' && info.daysDiff >= 0)
+              .sort((a, b) => a.info.daysDiff - b.info.daysDiff)[0];
+            if (!nextUp) return null;
+            return (
+              <Pressable
+                style={[styles.heroCard, effectBorder(nextUp.e.effect, nextUp.e.color)]}
+                onPress={() => setView({ kind: 'detail', id: nextUp.e.id })}
+              >
+                {nextUp.e.photoUri ? (
+                  <>
+                    <Image source={{ uri: nextUp.e.photoUri }} style={styles.cardPhoto} />
+                    <View style={styles.cardScrim} />
+                  </>
+                ) : null}
+                <View style={styles.heroContent}>
+                  <Text style={styles.heroKicker}>NEXT UP</Text>
+                  <Text style={[styles.heroBig, { fontFamily: FONT_FAMILY[nextUp.e.font] ?? fonts.grotesk }]}>{nextUp.info.label}</Text>
+                  <Text style={styles.heroTitle} numberOfLines={2}>{nextUp.e.title}</Text>
+                  <Text style={styles.heroMeta}>{nextUp.info.targetISO} · {nextUp.e.category}</Text>
+                </View>
+              </Pressable>
+            );
+          })() : null}
           {/* The big header "+ Add event" button is gone — the floating
               button below is now the single way to add, so the list
               itself gets the freed vertical space. */}
@@ -456,7 +496,7 @@ export default function Home({
                 <Text style={styles.primaryBtnText}>Set up my first event (5 steps)</Text>
               </Pressable>
               <Pressable
-                style={styles.primaryBtn}
+                style={styles.secondaryBtn}
                 onPress={async () => {
                   const added = exampleEvents(today);
                   await persistEvents(added);
@@ -464,13 +504,13 @@ export default function Home({
                   await sendImmediateNotification('Example events added', `${added.length} example events are now counting.`);
                 }}
               >
-                <Text style={styles.primaryBtnText}>Add example events</Text>
+                <Text style={styles.secondaryBtnText}>Add example events</Text>
               </Pressable>
-              <Pressable style={styles.primaryBtn} onPress={() => setView({ kind: 'contacts' })}>
-                <Text style={styles.primaryBtnText}>Import from contacts</Text>
+              <Pressable style={styles.secondaryBtn} onPress={() => setView({ kind: 'contacts' })}>
+                <Text style={styles.secondaryBtnText}>Import from contacts</Text>
               </Pressable>
-              <Pressable style={styles.primaryBtn} onPress={() => setView({ kind: 'calendar' })}>
-                <Text style={styles.primaryBtnText}>Import from device calendar</Text>
+              <Pressable style={styles.secondaryBtn} onPress={() => setView({ kind: 'calendar' })}>
+                <Text style={styles.secondaryBtnText}>Import from device calendar</Text>
               </Pressable>
             </View>
           ) : filtered.length === 0 ? (
@@ -559,6 +599,12 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   gearBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   heading: { fontFamily: fonts.grotesk, fontSize: 28, color: colors.onSurface, marginTop: 4 },
+  heroCard: { backgroundColor: colors.surface, borderRadius: 24, marginTop: 16, overflow: 'hidden' },
+  heroContent: { padding: 18 },
+  heroKicker: { fontFamily: fonts.jakartaBold, fontSize: 11, color: colors.primary, letterSpacing: 1.4 },
+  heroBig: { fontSize: 44, color: colors.onSurface, marginTop: 6 },
+  heroTitle: { fontFamily: fonts.jakartaBold, fontSize: 18, color: colors.onSurface, marginTop: 4, lineHeight: 23 },
+  heroMeta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 6 },
   meta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4 },
   search: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 15, marginTop: 14 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
@@ -570,7 +616,10 @@ const styles = StyleSheet.create({
   emptyText: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface, lineHeight: 21 },
   hint: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurfaceVariant, marginTop: 16, lineHeight: 20 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
-  card: { width: '48%', flexGrow: 1, backgroundColor: colors.surface, borderRadius: 20, padding: 12, marginTop: 12 },
+  card: { width: '48%', flexGrow: 1, backgroundColor: colors.surface, borderRadius: 20, marginTop: 12, overflow: 'hidden' },
+  cardPhoto: { ...StyleSheet.absoluteFill },
+  cardScrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)' },
+  cardContent: { padding: 12 },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   sticker: { fontSize: 16 },
   cardCategory: { fontFamily: fonts.jakartaBold, fontSize: 10, color: colors.onSurfaceVariant, letterSpacing: 1, flexShrink: 1 },
@@ -580,6 +629,8 @@ const styles = StyleSheet.create({
   cardBanner: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.accent, marginTop: 4 },
   bucketTitle: { fontFamily: fonts.grotesk, fontSize: 18, color: colors.onSurface, marginTop: 20 },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  secondaryBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 12 },
+  secondaryBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 15 },
   primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 15 },
   tabBar: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, paddingVertical: 8 },
   tabBtn: { flex: 1, alignItems: 'center', gap: 2 },

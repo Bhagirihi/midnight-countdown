@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../lib/theme';
-import { isValidDateISO } from '../lib/dates';
+import { countdownInfo, isValidDateISO, todayISO } from '../lib/dates';
 import { loadContactsWithBirthday, type ImportedContact } from '../lib/contacts';
 import { findDuplicateEvent } from '../lib/events';
 import {
-  CATEGORIES, EVENT_COLORS, EVENT_ICONS, EVENT_STICKERS, RELATIONSHIPS, newId,
+  CATEGORIES, EVENT_COLORS, EVENT_ICONS, EVENT_STICKERS, RELATIONSHIPS, newId, safeIcon,
   type CountdownEvent, type FontChoice, type VisualEffect,
 } from '../lib/events';
 import { pickSinglePhoto } from '../lib/photos';
+import { effectBorder } from './EventDetail';
 
 const FONT_OPTIONS: { key: FontChoice; label: string; family: string }[] = [
   { key: 'grotesk', label: 'Grotesk (display)', family: fonts.grotesk },
@@ -232,6 +233,21 @@ export default function EventEditor({
       </>) : null}
 
       {step === 3 ? (<>
+        <Text style={styles.label}>Live preview — this is how the card looks</Text>
+        <View style={[styles.previewCard, effectBorder(effect, color)]}>
+          {photoUri ? <Image source={{ uri: photoUri }} style={styles.previewPhoto} /> : null}
+          <View style={styles.row}>
+            <Ionicons name={safeIcon(icon) as never} size={22} color={color} />
+            {sticker ? <Text style={styles.stickerText}>{sticker}</Text> : null}
+          </View>
+          <Text style={[styles.previewBig, { fontFamily: FONT_OPTIONS.find((f) => f.key === font)?.family ?? fonts.grotesk }]}>
+            {isValidDateISO(dateISO) ? countdownInfo(dateISO, type, repeat, todayISO()).label : '—'}
+          </Text>
+          <Text style={styles.previewTitle}>{title.trim() || 'Your event'}</Text>
+          <Text style={styles.previewMeta}>{dateISO || 'Pick a date in Step 1'}</Text>
+        </View>
+        <Text style={styles.hint}>Change anything below and the preview above updates instantly — what you see here is what the Home card, widget and share card use.</Text>
+
         <Text style={styles.label}>Colour</Text>
         <View style={styles.row}>
           {EVENT_COLORS.map((c) => (
@@ -355,6 +371,11 @@ const styles = StyleSheet.create({
   stickerBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   stickerText: { fontSize: 20, color: colors.onSurface },
   photo: { width: '100%', height: 180, borderRadius: 16, marginTop: 8 },
+  previewCard: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, marginTop: 8 },
+  previewPhoto: { width: '100%', height: 120, borderRadius: 12, marginBottom: 12 },
+  previewBig: { fontSize: 36, color: colors.onSurface, marginTop: 8 },
+  previewTitle: { fontFamily: fonts.jakartaBold, fontSize: 16, color: colors.onSurface, marginTop: 4 },
+  previewMeta: { fontFamily: fonts.jakartaMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 4 },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 24 },
   primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 16 },
   secondaryBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginTop: 12 },

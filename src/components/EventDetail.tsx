@@ -208,7 +208,7 @@ export default function EventDetail({
       </View>
 
       <View style={styles.rowBtns}>
-        <Pressable style={styles.primaryBtn} onPress={onEdit}><Text style={styles.primaryBtnText}>Edit</Text></Pressable>
+        <Pressable style={[styles.secondaryBtn, { flex: 1, marginTop: 12 }]} onPress={onEdit}><Text style={styles.secondaryBtnText}>Edit</Text></Pressable>
         <Pressable
           style={styles.dangerBtn}
           onPress={() => Alert.alert('Delete event?', 'This also removes its story entries and gift plan.', [
