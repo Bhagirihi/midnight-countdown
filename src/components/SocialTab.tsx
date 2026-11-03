@@ -19,9 +19,8 @@ export default function SocialTab({
       ) : null}
       <Text style={styles.heading}>Recommended Events</Text>
       <Text style={styles.banner}>
-        LOCAL DEMO — no server, no real other users. These are seeded example
-        events only. Comments you write are stored on this device only and
-        nobody else can see them.
+        Local demo — seeded examples only, no real users. Comments stay on
+        this device.
       </Text>
       {RECOMMENDED_EVENTS.map((rec) => {
         const recComments = comments.filter((c) => c.recommendedId === rec.id);

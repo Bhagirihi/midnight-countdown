@@ -491,7 +491,7 @@ export default function Home({
 
           {events.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No events yet. Run the 5-step first-event setup, add one directly, or try clearly labelled examples you can delete.</Text>
+              <Text style={styles.emptyText}>No events yet.</Text>
               <Pressable style={styles.primaryBtn} onPress={() => setShowWizard(true)}>
                 <Text style={styles.primaryBtnText}>Set up my first event (5 steps)</Text>
               </Pressable>
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   gearBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   heading: { fontFamily: fonts.grotesk, fontSize: 28, color: colors.onSurface, marginTop: 4 },
-  heroCard: { backgroundColor: colors.surface, borderRadius: 24, marginTop: 16, overflow: 'hidden' },
+  heroCard: { backgroundColor: colors.surface, borderRadius: 24, marginTop: 12, overflow: 'hidden' },
   heroContent: { padding: 18 },
   heroKicker: { fontFamily: fonts.jakartaBold, fontSize: 11, color: colors.primary, letterSpacing: 1.4 },
   heroBig: { fontSize: 44, color: colors.onSurface, marginTop: 6 },
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontFamily: fonts.jakartaBold, fontSize: 14, color: colors.onSurface, marginTop: 2, lineHeight: 19 },
   cardMeta: { fontFamily: fonts.jakartaMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 4 },
   cardBanner: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.accent, marginTop: 4 },
-  bucketTitle: { fontFamily: fonts.grotesk, fontSize: 18, color: colors.onSurface, marginTop: 20 },
+  bucketTitle: { fontFamily: fonts.grotesk, fontSize: 18, color: colors.onSurface, marginTop: 14 },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   secondaryBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 12 },
   secondaryBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 15 },

@@ -56,15 +56,13 @@ export default function ContactImport({
       <Pressable onPress={onBack}><Text style={styles.back}>← Back</Text></Pressable>
       <Text style={styles.heading}>Import from contacts</Text>
       <Text style={styles.hint}>
-        Only contacts with a birthday on file are listed. Tap one, confirm,
-        and the editor opens prefilled. Nothing is uploaded, and contacts
-        are never imported in bulk. No Facebook or online contacts import
-        exists in this app.
+        Only contacts with a birthday on file are listed. Tap one to import
+        it — nothing is uploaded.
       </Text>
       {state === 'loading' ? <Text style={styles.hint}>Reading contacts…</Text> : null}
       {state === 'denied' ? (
         <View>
-          <Text style={styles.body}>Contact permission was denied, so no contacts can be listed.</Text>
+          <Text style={styles.body}>Contact permission denied.</Text>
           <Pressable style={styles.primaryBtn} onPress={() => Linking.openSettings()}>
             <Text style={styles.primaryBtnText}>Open system settings</Text>
           </Pressable>

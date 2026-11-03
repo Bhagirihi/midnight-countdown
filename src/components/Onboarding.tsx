@@ -23,7 +23,7 @@ const SLIDES = [
     numeralColor: colors.secondary,
     icon: 'notifications-outline' as const,
     title: 'Widgets & reminders',
-    body: 'Pin a countdown to your Android home screen (dev build required — widgets cannot run in Expo Go) and get reminded at the moments that matter.',
+    body: 'Pin a countdown to your home screen (dev build for widgets) and get reminded at the moments that matter.',
     mono: 'D-7 / D-3 / D-1',
   },
   {

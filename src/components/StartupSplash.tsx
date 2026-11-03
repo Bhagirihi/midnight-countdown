@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts, labelStyle } from '../lib/theme';
 
 // Branded splash shown on every cold start. The parent (App.tsx) decides
-// when to hide it: fonts/stores ready AND >= 1.2s elapsed, 5s fallback.
+// when to hide it: fonts/stores ready AND >= 2s elapsed, 5s fallback.
 // It lives only in the root mount, so resuming from background never
 // re-shows it.
 export default function StartupSplash() {

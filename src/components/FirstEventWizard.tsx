@@ -153,7 +153,7 @@ export default function FirstEventWizard({
         {step === 3 ? (
           <>
             <Text style={styles.heading}>When is it?</Text>
-            <Text style={styles.body}>For “{title.trim() || preset.label}”. Pick a date, or say how many days away it is.</Text>
+            <Text style={styles.body}>Pick a date, or say how many days away it is.</Text>
             <View style={styles.chipRow}>
               <Pressable onPress={() => switchMode('date')} style={[styles.chip, mode === 'date' && styles.chipOn]}>
                 <Text style={[styles.chipText, mode === 'date' && styles.chipTextOn]}>Date selection</Text>
@@ -212,9 +212,7 @@ export default function FirstEventWizard({
                 ) : null}
                 {computed.dateISO ? (
                   <Text style={styles.body}>Selected: {computed.dateISO}.</Text>
-                ) : (
-                  <Text style={styles.body}>Tap the field above and pick a day from the calendar — no typing a date.</Text>
-                )}
+                ) : null}
               </>
             ) : (
               <>
@@ -257,11 +255,8 @@ export default function FirstEventWizard({
           <>
             <Text style={styles.heading}>Notifications</Text>
             <Text style={styles.body}>
-              Optional and skippable — saying no blocks nothing. Tapping
-              the button below opens your phone&apos;s own permission
-              dialog: allow it and D-7 / D-3 / D-1 reminders can be
-              scheduled for this event. No location permission is asked
-              anywhere in this app, because no feature uses location.
+              Optional — saying no blocks nothing. Allow it and D-7 / D-3 /
+              D-1 reminders can be scheduled. No location permission is asked.
             </Text>
             <Pressable
               style={styles.secondaryBtn}
@@ -280,10 +275,8 @@ export default function FirstEventWizard({
           <>
             <Text style={styles.heading}>Add it to your home screen</Text>
             <Text style={styles.body}>
-              Pick a widget size for “{title.trim()}”. On a dev build, the
-              widget shows this event&apos;s real D-number from the snapshot.
-              In Expo Go, widgets cannot run at all — this choice is saved
-              for the dev build.
+              Pick a widget size for “{title.trim()}”. In Expo Go widgets
+              can&apos;t run — this choice is saved for the dev build.
             </Text>
             {WIDGET_VARIANTS.map((v) => (
               <Pressable key={v.id} style={[styles.row, variant === v.id && styles.rowOn]} onPress={() => setVariant(v.id)}>
@@ -293,12 +286,8 @@ export default function FirstEventWizard({
               </Pressable>
             ))}
             <Text style={styles.banner}>
-              LOCK SCREEN, HONESTLY: on iPhone the “Year left” widget is a
-              real Lock Screen widget. Stock Android cannot host
-              third-party lock-screen widgets (not supported since
-              Android 5) — there it is a compact home widget, except on
-              Samsung phones, where Good Lock → LockStar can place it on
-              the lock screen.
+              Lock screen: iPhone — real widget. Stock Android can&apos;t
+              host them; Samsung: Good Lock → LockStar.
             </Text>
             <Pressable style={styles.primaryBtn} onPress={finish}>
               <Text style={styles.primaryBtnText}>Create event &amp; go to Home</Text>
@@ -313,7 +302,7 @@ export default function FirstEventWizard({
           </Pressable>
         ) : null}
         <Pressable onPress={onSkip}>
-          <Text style={styles.skipLine}>Skip setup — I&apos;ll add an event later (nothing will be created)</Text>
+          <Text style={styles.skipLine}>Skip setup — nothing will be created</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

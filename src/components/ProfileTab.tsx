@@ -45,7 +45,7 @@ export default function ProfileTab({
       </Pressable>
 
       <Text style={styles.subGroup}>Start from zero</Text>
-      <Text style={styles.body}>Deletes everything this app stored on this device and takes you back to onboarding, as if you just installed it. There is no cloud backup, so this cannot be undone.</Text>
+      <Text style={styles.body}>Deletes everything stored on this device. No cloud backup — this cannot be undone.</Text>
       <Pressable style={styles.dangerBtn} onPress={() => Alert.alert('Start from zero?', 'This deletes all your events, stories, gift plans and settings on this device. It cannot be undone.', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete everything', style: 'destructive', onPress: onResetFromZero },
@@ -53,7 +53,6 @@ export default function ProfileTab({
         <Text style={styles.dangerText}>Start from zero</Text>
       </Pressable>
 
-      <Text style={styles.hint}>Everything else — Subscription, Notifications &amp; Privacy, Discover — lives in the Settings tab at the bottom.</Text>
     </ScrollView>
   );
 }

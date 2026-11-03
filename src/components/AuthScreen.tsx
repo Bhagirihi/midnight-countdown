@@ -48,8 +48,7 @@ export default function AuthScreen({
         <Text style={styles.kicker}>WELCOME BACK</Text>
         <Text style={styles.title}>LOGIN /{'\n'}SIGN UP</Text>
         <Text style={styles.body}>
-          One account, every countdown. Or skip it entirely — guest mode needs
-          nothing at all.
+          Or skip it — guest mode needs nothing.
         </Text>
 
         <View style={styles.inputWrap}>
@@ -86,9 +85,8 @@ export default function AuthScreen({
         </Pressable>
 
         <Text style={styles.note}>
-          Email sign-in here is stored only on this device. No server, no
-          verification, no cloud sync in this build. Google / Apple sign-in
-          is not connected yet.
+          Email sign-in stays on this device. No server, no cloud sync.
+          Google / Apple not connected yet.
         </Text>
       </View>
     </SafeAreaView>

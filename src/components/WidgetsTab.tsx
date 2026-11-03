@@ -29,19 +29,12 @@ export default function WidgetsTab({
       ) : null}
       <Text style={styles.heading}>Widgets</Text>
       <Text style={styles.banner}>
-        NOT A WORKING WIDGET IN EXPO GO. These Android home-screen
-        widgets need a dev build (expo prebuild + rebuild) — in Expo Go
-        nothing here pins to any screen. After a dev build, long-press
-        your home screen → Widgets → A Day Away to add one.
+        Not a working widget in Expo Go — needs a dev build. After one,
+        long-press your home screen → Widgets → A Day Away.
       </Text>
       <Text style={styles.banner2}>
-        LOCK SCREEN: iPhone — the “Year left” widget is a real Lock
-        Screen widget (long-press the lock screen → Customize → Add
-        Widgets). Stock Android phones cannot host third-party
-        lock-screen widgets (not supported since Android 5) — on
-        Android “Year left” is a compact home widget instead, except
-        on Samsung phones, where Good Lock → LockStar can place it on
-        the lock screen.
+        Lock screen: iPhone — real widget. Stock Android can&apos;t host
+        them; Samsung: Good Lock → LockStar.
       </Text>
 
       <Text style={styles.sub}>Choose a widget size</Text>

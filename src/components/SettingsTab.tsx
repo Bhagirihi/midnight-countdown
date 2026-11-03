@@ -39,7 +39,7 @@ export default function SettingsTab({
   return (
     <ScrollView style={styles.wrap} contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
       <Text style={styles.heading}>Settings</Text>
-      <Text style={styles.meta}>{authLabel} · everything extra, on this tab</Text>
+      <Text style={styles.meta}>{authLabel}</Text>
 
       {/* Subscription card */}
       <View style={styles.card}>
@@ -109,7 +109,7 @@ export default function SettingsTab({
             thumbColor={colors.onSurface}
           />
         </View>
-        <Text style={styles.hint}>{settings.appLockPinHash ? 'PIN set.' : 'No PIN set (biometrics only).'} Forgetting the app PIN has no server reset: sign out to clear the lock.</Text>
+        <Text style={styles.hint}>{settings.appLockPinHash ? 'PIN set.' : 'No PIN set.'} Forgotten PIN? Sign out to clear the lock.</Text>
         <Text style={styles.label}>Set / change app PIN (4–6 digits)</Text>
         <TextInput style={styles.input} value={pin} onChangeText={setPin} placeholder="New PIN" placeholderTextColor={colors.onSurfaceVariant} keyboardType="number-pad" secureTextEntry />
         <TextInput style={styles.input} value={pinConfirm} onChangeText={setPinConfirm} placeholder="Confirm PIN" placeholderTextColor={colors.onSurfaceVariant} keyboardType="number-pad" secureTextEntry />

@@ -132,8 +132,8 @@ export default function EventEditor({
       {step === 1 ? (
         <Text style={styles.hint}>
           {type === 'countdown'
-            ? 'Countdown: the date you are counting down to.'
-            : 'Day counting: the start date. Day 1 is the start date itself.'}
+            ? 'The date you are counting down to.'
+            : 'The start date — Day 1 is the start date itself.'}
         </Text>
       ) : null}
 
@@ -190,10 +190,9 @@ export default function EventEditor({
             {contactName}
             {contactPhone ? ` · ${contactPhone}` : ''}
             {contactEmail ? ` · ${contactEmail}` : ''}
-            {'\n'}Quick actions (call / WhatsApp / email) in Detail use this contact, only when a phone or email is present.
           </Text>
         ) : (
-          <Text style={styles.hint}>Link a contact to enable call / WhatsApp / email shortcuts in Detail. Import copies one contact locally — nothing is uploaded.</Text>
+          <Text style={styles.hint}>Import copies one contact locally.</Text>
         )}
         <View style={styles.row}>
           <Pressable style={styles.secondaryBtn} onPress={openImport}>
@@ -210,7 +209,7 @@ export default function EventEditor({
             {importState === 'loading' ? <Text style={styles.hint}>Reading contacts…</Text> : null}
             {importState === 'denied' ? (
               <>
-                <Text style={styles.hint}>Contact permission was denied, so no contacts can be listed.</Text>
+                <Text style={styles.hint}>Contact permission denied.</Text>
                 <Pressable style={styles.secondaryBtn} onPress={() => Linking.openSettings()}>
                   <Text style={styles.secondaryBtnText}>Open system settings</Text>
                 </Pressable>
@@ -246,7 +245,6 @@ export default function EventEditor({
           <Text style={styles.previewTitle}>{title.trim() || 'Your event'}</Text>
           <Text style={styles.previewMeta}>{dateISO || 'Pick a date in Step 1'}</Text>
         </View>
-        <Text style={styles.hint}>Change anything below and the preview above updates instantly — what you see here is what the Home card, widget and share card use.</Text>
 
         <Text style={styles.label}>Colour</Text>
         <View style={styles.row}>
@@ -273,7 +271,7 @@ export default function EventEditor({
           ))}
         </View>
 
-        <Text style={styles.label}>Font for the big number</Text>
+        <Text style={styles.label}>Number font</Text>
         <View style={styles.row}>
           {FONT_OPTIONS.map((f) => (
             <Pressable key={f.key} onPress={() => setFont(f.key)} style={[styles.chip, font === f.key && styles.chipOn]}>
@@ -282,7 +280,7 @@ export default function EventEditor({
           ))}
         </View>
 
-        <Text style={styles.label}>Visual effect (styling only, no animation)</Text>
+        <Text style={styles.label}>Visual effect</Text>
         <View style={styles.row}>
           {EFFECT_OPTIONS.map((e) => (
             <Pressable key={e.key} onPress={() => setEffect(e.key)} style={[styles.chip, effect === e.key && styles.chipOn]}>
@@ -291,7 +289,7 @@ export default function EventEditor({
           ))}
         </View>
 
-        <Text style={styles.label}>Background photo (optional, from your device)</Text>
+        <Text style={styles.label}>Background photo (optional)</Text>
         {photoUri ? (
           <Image source={{ uri: photoUri }} style={styles.photo} />
         ) : null}
@@ -311,11 +309,11 @@ export default function EventEditor({
             </Pressable>
           ) : null}
         </View>
-        <Text style={styles.hint}>Photos stay on this device only. A picked photo may not survive an uninstall or reinstall.</Text>
+        <Text style={styles.hint}>Photos stay on this device; they may not survive reinstall.</Text>
       </>) : null}
 
       {step === 4 ? (<>
-        <Text style={styles.hint}>Check everything, then save. Tap Back to change any step — nothing is lost.</Text>
+        <Text style={styles.hint}>Tap Back to change anything.</Text>
         <View style={styles.reviewCard}>
           <Text style={styles.reviewBig}>{title.trim() || '(no title yet)'}</Text>
           <Text style={styles.reviewLine}>{dateISO} · {type === 'countdown' ? 'Countdown' : 'Day counting'} · {repeat === 'none' ? 'Once' : repeat}</Text>
@@ -357,7 +355,7 @@ const styles = StyleSheet.create({
   reviewBig: { fontFamily: fonts.grotesk, fontSize: 22, color: colors.onSurface },
   reviewLine: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurface, marginTop: 6, lineHeight: 20 },
   hint: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 6, lineHeight: 18 },
-  label: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.onSurface, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 20 },
+  label: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.onSurface, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 16 },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 16, marginTop: 8 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   chip: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.surface },

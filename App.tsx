@@ -41,7 +41,7 @@ export default function App() {
 
   // Cold-start routing + splash gating, run once on mount.
   // Splash hides only when: fonts settled AND stored progress loaded AND
-  // >= 1.2s elapsed. A 5s fallback guarantees it can never hang the app.
+  // >= 2s elapsed. A 5s fallback guarantees it can never hang the app.
   // This state lives in the root mount only, so resuming from background
   // never re-shows the splash.
   useEffect(() => {
@@ -68,7 +68,7 @@ export default function App() {
         : !progress.authChoice
           ? 'auth'
           : 'home';
-      const wait = Math.max(0, 1200 - (Date.now() - startedAt.current));
+      const wait = Math.max(0, 2000 - (Date.now() - startedAt.current));
       setTimeout(() => finish(next), wait);
     }
     // Wait for fonts to settle (success or error) before routing, so the

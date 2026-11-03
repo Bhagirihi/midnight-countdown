@@ -73,7 +73,7 @@ export default function ShareCard({
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Share card</Text>
-      <Text style={styles.hint}>This is exactly what gets sent — an image, not just text. Tap Share card, then pick WhatsApp or any messaging app.</Text>
+      <Text style={styles.hint}>Tap Share card, then pick WhatsApp or any app.</Text>
       <View ref={cardRef} collapsable={false} style={[styles.card, { borderColor: event.color }]}>
         <View style={styles.cardTop}>
           <Ionicons name={safeIcon(event.icon) as never} size={28} color={event.color} />
@@ -93,7 +93,7 @@ export default function ShareCard({
 }
 
 const styles = StyleSheet.create({
-  section: { marginTop: 20 },
+  section: { marginTop: 12 },
   sectionTitle: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 16, marginBottom: 8 },
   hint: { color: colors.onSurfaceVariant, fontFamily: fonts.jakartaMedium, fontSize: 13, marginBottom: 12, lineHeight: 18 },
   card: {

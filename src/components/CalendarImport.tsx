@@ -29,13 +29,12 @@ export default function CalendarImport({
       <Text style={styles.heading}>Import from device calendar</Text>
       <Text style={styles.hint}>
         Events from the next 12 months on this device's calendars. Tap one
-        to confirm it as a local countdown. This is not Google Calendar
-        sync — nothing is uploaded and no online calendar is read.
+        to confirm it as a local countdown — nothing is uploaded.
       </Text>
       {state === 'loading' ? <Text style={styles.hint}>Reading device calendars…</Text> : null}
       {state === 'denied' ? (
         <View>
-          <Text style={styles.body}>Calendar permission was denied, so no calendar events can be listed.</Text>
+          <Text style={styles.body}>Calendar permission denied.</Text>
           <Pressable style={styles.primaryBtn} onPress={() => Linking.openSettings()}>
             <Text style={styles.primaryBtnText}>Open system settings</Text>
           </Pressable>

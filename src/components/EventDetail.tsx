@@ -177,7 +177,7 @@ export default function EventDetail({
             {event.contactEmail ? ` · ${event.contactEmail}` : ''}
           </Text>
         ) : (
-          <Text style={styles.hint}>No contact linked. Edit this event and import a contact to enable call / WhatsApp / email shortcuts.</Text>
+          <Text style={styles.hint}>No contact linked.</Text>
         )}
         <View style={styles.rowBtns}>
           <Pressable
@@ -202,9 +202,6 @@ export default function EventDetail({
             <Text style={styles.actionBtnText}>Email</Text>
           </Pressable>
         </View>
-        {(!event.contactPhone || !event.contactEmail) ? (
-          <Text style={styles.hint}>A shortcut is disabled when its phone number or email is missing — link a contact first. Nothing is sent until you tap an enabled shortcut.</Text>
-        ) : null}
       </View>
 
       <View style={styles.rowBtns}>
@@ -226,13 +223,13 @@ export default function EventDetail({
       >
         <Text style={styles.secondaryBtnText}>Schedule D-7 / D-3 / D-1 / day-of reminders</Text>
       </Pressable>
-      <Text style={styles.hint}>Reminders need a dev build to actually fire. In Expo Go they may be scheduled but not delivered.</Text>
+      <Text style={styles.hint}>Needs a dev build to fire.</Text>
 
       {zodiac && stone ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Just for fun</Text>
           <Text style={styles.rowText}>⭐ {zodiac.sign} ({zodiac.range}) · Birthstone: {stone}</Text>
-          <Text style={styles.hint}>Fun only — based on the event month/day. No personality traits are claimed as fact.</Text>
+          <Text style={styles.hint}>Fun only.</Text>
         </View>
       ) : null}
       </>)}
@@ -241,7 +238,6 @@ export default function EventDetail({
       <>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Gift planning — local only</Text>
-        <Text style={styles.hint}>Ideas, wishlist notes, and a budget tracker for this person/event. No shopping checkout and no affiliate links — a link here is just text you saved.</Text>
         <Text style={styles.label}>Wishlist notes</Text>
         <TextInput
           style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
@@ -319,7 +315,7 @@ export default function EventDetail({
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Group gift planning</Text>
-        <Text style={styles.hint}>Local plan — not a live shared link or payment. Add who is contributing what, then share a plain-text summary yourself.</Text>
+        <Text style={styles.hint}>Local only — not a live link or payment.</Text>
         <TextInput style={styles.input} value={contribName} onChangeText={setContribName} placeholder="Contributor name" placeholderTextColor={colors.onSurfaceVariant} />
         <TextInput style={styles.input} value={contribItem} onChangeText={setContribItem} placeholder="Item / contribution" placeholderTextColor={colors.onSurfaceVariant} />
         <TextInput style={styles.input} value={contribAmount} onChangeText={setContribAmount} placeholder="Amount" placeholderTextColor={colors.onSurfaceVariant} keyboardType="decimal-pad" />
@@ -347,7 +343,6 @@ export default function EventDetail({
       <>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Greeting templates</Text>
-        <Text style={styles.hint}>Tap Copy on any template — the message is copied, nothing is sent by the app.</Text>
         {greetingTemplates(event.category).map((t) => {
           const filled = t.replaceAll('{name}', person);
           return (
@@ -367,7 +362,7 @@ export default function EventDetail({
       <>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Story — mini-diary for this event</Text>
-        <Text style={styles.hint}>One entry per date, with text and up to {MAX_STORY_PHOTOS} photos. Photos stay on this device only.</Text>
+        <Text style={styles.hint}>Photos stay on this device.</Text>
         <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
         <TextInput style={styles.input} value={storyDate} onChangeText={setStoryDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.onSurfaceVariant} autoCapitalize="none" />
         <Text style={styles.label}>What happened?</Text>
@@ -432,15 +427,15 @@ const styles = StyleSheet.create({
   banner: { fontFamily: fonts.jakartaBold, fontSize: 16, color: colors.accent, marginTop: 8 },
   meta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4, lineHeight: 18 },
   today: { fontFamily: fonts.jakartaBold, fontSize: 14, color: colors.accent, marginTop: 8 },
-  tabBar: { flexDirection: 'row', gap: 8, backgroundColor: colors.background, paddingVertical: 10, marginTop: 4 },
+  tabBar: { flexDirection: 'row', gap: 8, backgroundColor: colors.background, paddingVertical: 8, marginTop: 4 },
   tabBtn: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingVertical: 9, alignItems: 'center' },
   tabBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   tabBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 13 },
   tabBtnTextOn: { color: colors.background },
-  section: { marginTop: 24 },
+  section: { marginTop: 16 },
   sectionTitle: { fontFamily: fonts.grotesk, fontSize: 20, color: colors.onSurface, marginBottom: 8 },
   rowText: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurface, marginTop: 6, lineHeight: 20 },
-  rowBtns: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  rowBtns: { flexDirection: 'row', gap: 10, marginTop: 14 },
   primaryBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 12 },
   primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 15 },
   dangerBtn: { flex: 1, borderWidth: 1, borderColor: colors.error, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 12 },
@@ -456,7 +451,7 @@ const styles = StyleSheet.create({
   miniCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 12, marginTop: 10 },
   notice: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurface, marginTop: 10, lineHeight: 18 },
   hint: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 8, lineHeight: 18 },
-  label: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.onSurface, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 14 },
+  label: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.onSurface, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 12 },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 15, marginTop: 8 },
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   thumb: { width: 72, height: 72, borderRadius: 10 },
