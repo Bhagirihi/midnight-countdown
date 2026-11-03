@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts } from '../lib/theme';
-import { birthstone, countdownInfo, milestones, parseDate, todayISO, turningInfo, zodiacSign } from '../lib/dates';
+import { colors, fonts, labelStyle } from '../lib/theme';
+import { birthstone, countdownInfo, formatHumanDate, milestones, parseDate, todayISO, turningInfo, zodiacSign } from '../lib/dates';
 import {
   MAX_STORY_PHOTOS, capPhotos, emptyGiftPlan, greetingTemplates, newId, remainingBudget, safeIcon, spentTotal,
   type CountdownEvent, type GiftPlan, type StoryEntry,
 } from '../lib/events';
-import { pickPhotos } from '../lib/photos';
+import { pickPhotos, pickSinglePhoto } from '../lib/photos';
 import { maybeAskForReview } from '../lib/review';
 import ShareCard from './ShareCard';
 
@@ -24,7 +24,7 @@ export function effectBorder(effect: string, color: string): { borderColor: stri
 }
 
 export default function EventDetail({
-  event, eventCount, stories, giftPlan, onBack, onEdit, onDelete, onAddStory, onDeleteStory, onSchedule, onSaveGiftPlan,
+  event, eventCount, stories, giftPlan, onBack, onEdit, onCustomize, onDelete, onAddStory, onDeleteStory, onSchedule, onSaveGiftPlan, onChangePhoto,
 }: {
   event: CountdownEvent;
   eventCount: number;
@@ -32,11 +32,13 @@ export default function EventDetail({
   giftPlan: GiftPlan;
   onBack: () => void;
   onEdit: () => void;
+  onCustomize: () => void;
   onDelete: () => void;
   onAddStory: (text: string, dateISO: string, photoUris: string[]) => void;
   onDeleteStory: (id: string) => void;
   onSchedule: () => Promise<string>;
   onSaveGiftPlan: (plan: GiftPlan) => void;
+  onChangePhoto: (uri: string | null) => void;
 }) {
   const today = todayISO();
   const info = countdownInfo(event.dateISO, event.type, event.repeat, today);
@@ -78,10 +80,20 @@ export default function EventDetail({
     onSaveGiftPlan(next);
   };
 
-  const breakdownLine =
-    event.type === 'countup'
-      ? `${Math.abs(info.breakdown.months)} month(s), ${info.breakdown.daysAfterMonths} day(s) since start · ${info.breakdown.weeks} week(s)`
-      : `${Math.abs(info.breakdown.months)} month(s), ${info.breakdown.daysAfterMonths} day(s) · ${info.breakdown.weeks} week(s), ${info.breakdown.daysAfterWeeks} day(s)`;
+  const b = info.breakdown;
+  const breakdownLine = event.type === 'countup'
+    ? `${Math.abs(b.months)} months · ${b.daysAfterMonths} days · ${b.weeks} weeks`
+    : `${Math.abs(info.daysDiff)} days · ${b.weeks} weeks · ${Math.abs(b.months)} months`;
+  const nextMilestone = ms.find((m) => !m.reached) ?? [...ms].reverse().find((m) => m.reached) ?? null;
+  const isDay = info.isToday && event.type === 'countdown';
+  const tone = isDay
+    ? colors.success
+    : event.type === 'countup' || event.repeat !== 'none'
+      ? colors.secondary
+      : colors.primary;
+  const when = event.type === 'countup'
+    ? `Started ${formatHumanDate(event.dateISO, today)}`
+    : formatHumanDate(info.targetISO, today);
 
   const copyText = async (text: string) => {
     try {
@@ -99,8 +111,7 @@ export default function EventDetail({
   const digits = (event.contactPhone ?? '').replace(/\D/g, '');
   const shareGroupSummary = async () => {
     const lines = [
-      `Group gift plan — ${event.title} (${event.dateISO})`,
-      `Local plan — not a live shared link or payment.`,
+      `Group gift plan — ${event.title} (${formatHumanDate(event.dateISO, today)})`,
       '',
       ...plan.contributors.map((c) => `• ${c.name}: ${c.item} — ${c.amount}`),
       `Total pledged: ${plan.contributors.reduce((s, c) => s + c.amount, 0)}`,
@@ -117,35 +128,63 @@ export default function EventDetail({
   return (
     <ScrollView
       style={styles.wrap}
-      contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
-      stickyHeaderIndices={[2]}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 48 }}
     >
-      <Pressable onPress={onBack}><Text style={styles.back}>← Back</Text></Pressable>
-
-      <View style={[styles.hero, effectBorder(event.effect, event.color)]}>
-        {event.photoUri ? <Image source={{ uri: event.photoUri }} style={styles.heroPhoto} /> : null}
-        <View style={styles.heroRow}>
-          <Ionicons name={safeIcon(event.icon) as never} size={28} color={event.color} />
-          {event.sticker ? <Text style={styles.sticker}>{event.sticker}</Text> : null}
+      <View style={styles.topBar}>
+        <Pressable onPress={onBack} hitSlop={8}><Text style={styles.back}>Back</Text></Pressable>
+        <View style={styles.topActions}>
+          <Pressable onPress={onEdit} hitSlop={8}><Text style={styles.topAction}>Edit</Text></Pressable>
+          <Pressable
+            onPress={() => Alert.alert('Delete event?', 'This also removes its story entries and gift plan.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete', style: 'destructive', onPress: onDelete },
+            ])}
+            hitSlop={8}
+          >
+            <Text style={styles.topDelete}>Delete</Text>
+          </Pressable>
         </View>
-        <Text style={[styles.big, { fontFamily: FONT_FAMILY[event.font] ?? fonts.grotesk }]}>{info.label}</Text>
-        <Text style={styles.title}>{event.title}</Text>
-        {turning ? <Text style={styles.banner}>🎉 {turning.label} · {turning.nextISO}</Text> : null}
-        <Text style={styles.meta}>
-          {event.type === 'countup' ? `Started ${event.dateISO}` : `Target ${info.targetISO}`}
-          {event.repeat !== 'none' ? ` · Repeats ${event.repeat}` : ''}
-          {` · ${event.category}`}
-          {event.relationship ? ` · ${event.relationship}` : ''}
+      </View>
+
+      <View style={styles.hero}>
+        {event.photoUri ? (
+          <Image source={{ uri: event.photoUri }} style={styles.heroPhoto} resizeMode="cover" />
+        ) : (
+          <Pressable onPress={async () => {
+            const uri = await pickSinglePhoto();
+            if (uri) onChangePhoto(uri);
+          }} hitSlop={8} style={styles.addPhoto}>
+            <Text style={styles.smallBtnText}>Add photo</Text>
+          </Pressable>
+        )}
+        <View style={styles.kickerRow}>
+          {event.sticker ? (
+            <Text style={styles.sticker}>{event.sticker}</Text>
+          ) : (
+            <Ionicons name={safeIcon(event.icon) as never} size={16} color={colors.onSurfaceVariant} />
+          )}
+          <Text style={styles.kicker}>{event.category}</Text>
+        </View>
+        <Text style={[styles.big, { fontFamily: FONT_FAMILY[event.font] ?? fonts.grotesk, color: tone }]}>
+          {isDay ? 'Today' : info.label}
         </Text>
-        <Text style={styles.meta}>{breakdownLine}</Text>
-        {event.notes ? <Text style={styles.meta}>Notes: {event.notes}</Text> : null}
-        {info.isToday ? <Text style={styles.today}>Today is the day.</Text> : null}
+        <Text style={styles.title}>{event.title}</Text>
+        {event.effect !== 'none' ? (
+          <View style={[styles.effectRule, { backgroundColor: effectBorder(event.effect, event.color).borderColor }]} />
+        ) : (
+          <View style={styles.rule} />
+        )}
+        <Text style={styles.meta}>
+          {when}
+          {event.repeat !== 'none' ? `  ·  Repeats ${event.repeat}` : ''}
+        </Text>
       </View>
 
       <View style={styles.tabBar}>
         {TABS.map((t) => (
-          <Pressable key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnOn]} onPress={() => setTab(t.id)}>
-            <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextOn]}>{t.label}</Text>
+          <Pressable key={t.id} style={styles.tabBtn} onPress={() => setTab(t.id)}>
+            <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextOn]} numberOfLines={1}>{t.label}</Text>
+            <View style={[styles.tabMark, tab === t.id && styles.tabMarkOn]} />
           </Pressable>
         ))}
       </View>
@@ -154,91 +193,101 @@ export default function EventDetail({
 
       {tab === 'overview' && (
       <>
-      <ShareCard event={event} label={info.label} targetISO={info.targetISO} eventCount={eventCount} />
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>Photo</Text>
+        <Text style={styles.hint}>
+          {event.photoUri ? 'Shown here and on Home.' : 'Add a picture for this day. It stays on this phone.'}
+        </Text>
+        <View style={styles.photoActions}>
+          <Pressable
+            onPress={async () => {
+              const uri = await pickSinglePhoto();
+              if (uri) onChangePhoto(uri);
+            }}
+            hitSlop={8}
+          >
+            <Text style={styles.smallBtnText}>{event.photoUri ? 'Change photo' : 'Add photo'}</Text>
+          </Pressable>
+          {event.photoUri ? (
+            <Pressable onPress={() => onChangePhoto(null)} hitSlop={8}>
+              <Text style={styles.removePhoto}>Remove</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
 
-      {ms.length > 0 ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Milestones</Text>
-          {ms.map((m) => (
-            <Text key={m.label + m.dateISO} style={styles.rowText}>
-              {m.reached ? '✓ ' : '○ '}{m.label} — {m.dateISO}
-              {m.reached ? ' (reached)' : m.daysAway === 0 ? ' (today)' : ` (in ${m.daysAway} days)`}
-            </Text>
-          ))}
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>This date</Text>
+        <Text style={styles.rowText}>{breakdownLine}</Text>
+        {turning ? <Text style={styles.banner}>{turning.label}</Text> : null}
+        {event.notes ? <Text style={styles.notes}>{event.notes}</Text> : null}
+      </View>
+
+      {nextMilestone ? (
+        <View style={styles.giftCard}>
+          <Text style={styles.giftTitle}>Next milestone</Text>
+          <Text style={[styles.rowText, nextMilestone.reached && styles.reached]}>
+            {nextMilestone.reached ? 'Reached' : nextMilestone.label}
+          </Text>
+          <Text style={styles.hint}>
+            {formatHumanDate(nextMilestone.dateISO, today)}
+            {nextMilestone.reached ? '' : nextMilestone.daysAway === 0 ? ' · today' : ` · in ${nextMilestone.daysAway} days`}
+          </Text>
         </View>
       ) : null}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Contact &amp; quick actions</Text>
-        {event.contactName ? (
-          <Text style={styles.rowText}>
-            {event.contactName}
-            {event.contactPhone ? ` · ${event.contactPhone}` : ''}
-            {event.contactEmail ? ` · ${event.contactEmail}` : ''}
-          </Text>
-        ) : (
-          <Text style={styles.hint}>No contact linked.</Text>
-        )}
-        <View style={styles.rowBtns}>
-          <Pressable
-            style={[styles.actionBtn, !event.contactPhone && styles.actionBtnDisabled]}
-            disabled={!event.contactPhone}
-            onPress={() => event.contactPhone && Linking.openURL(`tel:${event.contactPhone}`)}
-          >
-            <Text style={styles.actionBtnText}>Call</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.actionBtn, !digits && styles.actionBtnDisabled]}
-            disabled={!digits}
-            onPress={() => digits && Linking.openURL(`https://wa.me/${digits}`)}
-          >
-            <Text style={styles.actionBtnText}>WhatsApp</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.actionBtn, !event.contactEmail && styles.actionBtnDisabled]}
-            disabled={!event.contactEmail}
-            onPress={() => event.contactEmail && Linking.openURL(`mailto:${event.contactEmail}`)}
-          >
-            <Text style={styles.actionBtnText}>Email</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <View style={styles.rowBtns}>
-        <Pressable style={[styles.secondaryBtn, { flex: 1, marginTop: 12 }]} onPress={onEdit}><Text style={styles.secondaryBtnText}>Edit</Text></Pressable>
-        <Pressable
-          style={styles.dangerBtn}
-          onPress={() => Alert.alert('Delete event?', 'This also removes its story entries and gift plan.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: onDelete },
-          ])}
-        >
-          <Text style={styles.dangerBtnText}>Delete</Text>
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>Reminder</Text>
+        <Text style={styles.hint}>Seven days, three days, the day before, and the day.</Text>
+        <Pressable style={styles.primaryBtn} onPress={async () => setNotice(await onSchedule())}>
+          <Text style={styles.primaryBtnText}>Remind me</Text>
         </Pressable>
       </View>
 
-      <Pressable
-        style={styles.secondaryBtn}
-        onPress={async () => setNotice(await onSchedule())}
-      >
-        <Text style={styles.secondaryBtnText}>Schedule D-7 / D-3 / D-1 / day-of reminders</Text>
-      </Pressable>
-      <Text style={styles.hint}>Needs a dev build to fire.</Text>
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>Share</Text>
+        <Text style={styles.hint}>Send this countdown, then pick an app.</Text>
+        <ShareCard compact event={event} label={isDay ? 'Today' : info.label} targetISO={info.targetISO} eventCount={eventCount} />
+      </View>
 
-      {zodiac && stone ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Just for fun</Text>
-          <Text style={styles.rowText}>⭐ {zodiac.sign} ({zodiac.range}) · Birthstone: {stone}</Text>
-          <Text style={styles.hint}>Fun only.</Text>
+      <Pressable style={styles.giftCard} onPress={onCustomize}>
+        <View style={styles.cardRow}>
+          <View style={styles.cardCopy}>
+            <Text style={styles.giftTitle}>Look</Text>
+            <Text style={styles.hint}>Colour, icon, sticker, and photo.</Text>
+          </View>
+          <Text style={styles.chevron}>→</Text>
+        </View>
+      </Pressable>
+
+      {(event.contactPhone || event.contactEmail) ? (
+        <View style={styles.giftCard}>
+          <Text style={styles.giftTitle}>{event.contactName || 'Contact'}</Text>
+          <View style={styles.contactList}>
+            {event.contactPhone ? (
+              <Pressable style={styles.actionBtn} onPress={() => Linking.openURL(`tel:${event.contactPhone}`)}>
+                <Text style={styles.actionBtnText}>Call</Text>
+              </Pressable>
+            ) : null}
+            {digits ? (
+              <Pressable style={styles.actionBtn} onPress={() => Linking.openURL(`https://wa.me/${digits}`)}>
+                <Text style={styles.actionBtnText}>WhatsApp</Text>
+              </Pressable>
+            ) : null}
+            {event.contactEmail ? (
+              <Pressable style={styles.actionBtn} onPress={() => Linking.openURL(`mailto:${event.contactEmail}`)}>
+                <Text style={styles.actionBtnText}>Email</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       ) : null}
       </>)}
 
       {tab === 'gifts' && (
       <>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gift planning — local only</Text>
-        <Text style={styles.label}>Wishlist notes</Text>
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>Wishlist</Text>
         <TextInput
           style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
           value={plan.wishlistNotes}
@@ -247,15 +296,21 @@ export default function EventDetail({
           placeholderTextColor={colors.onSurfaceVariant}
           multiline
         />
-        <Text style={styles.label}>Planned budget</Text>
+      </View>
+
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>Budget</Text>
         <View style={styles.inlineRow}>
-          <TextInput style={[styles.input, { flex: 1, marginTop: 0 }]} value={budgetText} onChangeText={setBudgetText} placeholder="0" placeholderTextColor={colors.onSurfaceVariant} keyboardType="decimal-pad" />
+          <TextInput style={[styles.input, { flex: 1 }]} value={budgetText} onChangeText={setBudgetText} placeholder="0" placeholderTextColor={colors.onSurfaceVariant} keyboardType="decimal-pad" />
           <Pressable style={styles.smallBtn} onPress={() => updatePlan({ ...plan, budgetPlanned: Number(budgetText) || 0 })}>
             <Text style={styles.smallBtnText}>Save budget</Text>
           </Pressable>
         </View>
         <Text style={styles.rowText}>Planned: {plan.budgetPlanned} · Spent: {spentTotal(plan)} · Remaining: {remainingBudget(plan)}{remainingBudget(plan) < 0 ? ' (over budget)' : ''}</Text>
-        <Text style={styles.label}>Add spent amount</Text>
+      </View>
+
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>Spent</Text>
         <TextInput style={styles.input} value={spentLabel} onChangeText={setSpentLabel} placeholder="What was it for?" placeholderTextColor={colors.onSurfaceVariant} />
         <TextInput style={styles.input} value={spentAmount} onChangeText={setSpentAmount} placeholder="Amount" placeholderTextColor={colors.onSurfaceVariant} keyboardType="decimal-pad" />
         <Pressable
@@ -269,9 +324,12 @@ export default function EventDetail({
           <Text style={styles.secondaryBtnText}>Add spent entry</Text>
         </Pressable>
         {plan.spent.map((s) => (
-          <Text key={s.id} style={styles.rowText}>• {s.label} — {s.amount}</Text>
+          <Text key={s.id} style={styles.rowText}>{s.label} — {s.amount}</Text>
         ))}
-        <Text style={styles.label}>Gift idea</Text>
+      </View>
+
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>Ideas</Text>
         <TextInput style={styles.input} value={ideaItem} onChangeText={setIdeaItem} placeholder="Gift idea" placeholderTextColor={colors.onSurfaceVariant} />
         <TextInput style={styles.input} value={ideaNotes} onChangeText={setIdeaNotes} placeholder="Notes (optional)" placeholderTextColor={colors.onSurfaceVariant} />
         <TextInput style={styles.input} value={ideaLink} onChangeText={setIdeaLink} placeholder="Link text (optional, saved as text only)" placeholderTextColor={colors.onSurfaceVariant} autoCapitalize="none" />
@@ -287,15 +345,18 @@ export default function EventDetail({
         </Pressable>
         {plan.ideas.map((g) => (
           <View key={g.id} style={styles.miniCard}>
-            <Text style={styles.rowText}>🎁 {g.item}</Text>
+            <Text style={styles.rowText}>{g.item}</Text>
             {g.notes ? <Text style={styles.hint}>{g.notes}</Text> : null}
-            {g.link ? <Text style={styles.hint}>Link (text only): {g.link}</Text> : null}
+            {g.link ? <Text style={styles.hint}>{g.link}</Text> : null}
             <Pressable onPress={() => updatePlan({ ...plan, ideas: plan.ideas.filter((x) => x.id !== g.id) })}>
               <Text style={styles.deleteText}>Remove idea</Text>
             </Pressable>
           </View>
         ))}
-        <Text style={styles.label}>Past gifts given</Text>
+      </View>
+
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>Past gifts</Text>
         <TextInput style={styles.input} value={pastItem} onChangeText={setPastItem} placeholder="What was given?" placeholderTextColor={colors.onSurfaceVariant} />
         <TextInput style={styles.input} value={pastDate} onChangeText={setPastDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.onSurfaceVariant} autoCapitalize="none" />
         <Pressable
@@ -309,13 +370,13 @@ export default function EventDetail({
           <Text style={styles.secondaryBtnText}>Add past gift</Text>
         </Pressable>
         {plan.pastGifts.map((g) => (
-          <Text key={g.id} style={styles.rowText}>• {g.item} — {g.dateISO}</Text>
+          <Text key={g.id} style={styles.rowText}>{g.item} — {formatHumanDate(g.dateISO, today)}</Text>
         ))}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Group gift planning</Text>
-        <Text style={styles.hint}>Local only — not a live link or payment.</Text>
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>Group gift</Text>
+        <Text style={styles.hint}>Saved on this phone. Share sends a text summary you choose.</Text>
         <TextInput style={styles.input} value={contribName} onChangeText={setContribName} placeholder="Contributor name" placeholderTextColor={colors.onSurfaceVariant} />
         <TextInput style={styles.input} value={contribItem} onChangeText={setContribItem} placeholder="Item / contribution" placeholderTextColor={colors.onSurfaceVariant} />
         <TextInput style={styles.input} value={contribAmount} onChangeText={setContribAmount} placeholder="Amount" placeholderTextColor={colors.onSurfaceVariant} keyboardType="decimal-pad" />
@@ -330,38 +391,41 @@ export default function EventDetail({
           <Text style={styles.secondaryBtnText}>Add contributor</Text>
         </Pressable>
         {plan.contributors.map((c) => (
-          <Text key={c.id} style={styles.rowText}>• {c.name}: {c.item} — {c.amount}</Text>
+          <Text key={c.id} style={styles.rowText}>{c.name}: {c.item} — {c.amount}</Text>
         ))}
         <Pressable style={styles.primaryBtn} onPress={shareGroupSummary}>
-          <Text style={styles.primaryBtnText}>Share summary (plain text)</Text>
+          <Text style={styles.primaryBtnText}>Share summary</Text>
         </Pressable>
       </View>
 
+      {zodiac && stone ? (
+        <View style={styles.giftCard}>
+          <Text style={styles.giftTitle}>Just for fun</Text>
+          <Text style={styles.rowText}>{zodiac.sign} ({zodiac.range}) · Birthstone: {stone}</Text>
+        </View>
+      ) : null}
       </>)}
 
       {tab === 'greetings' && (
       <>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Greeting templates</Text>
-        {greetingTemplates(event.category).map((t) => {
-          const filled = t.replaceAll('{name}', person);
-          return (
-            <View key={t} style={styles.miniCard}>
-              <Text style={styles.rowText}>{filled}</Text>
-              <Pressable style={styles.smallBtn} onPress={() => copyText(filled)}>
-                <Text style={styles.smallBtnText}>Copy</Text>
-              </Pressable>
-            </View>
-          );
-        })}
-      </View>
-
+      {greetingTemplates(event.category).map((t) => {
+        const filled = t.replaceAll('{name}', person);
+        return (
+          <View key={t} style={styles.giftCard}>
+            <Text style={styles.giftTitle}>Greeting</Text>
+            <Text style={styles.rowText}>{filled}</Text>
+            <Pressable style={styles.smallBtn} onPress={() => copyText(filled)}>
+              <Text style={styles.smallBtnText}>Copy</Text>
+            </Pressable>
+          </View>
+        );
+      })}
       </>)}
 
       {tab === 'story' && (
       <>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Story — mini-diary for this event</Text>
+      <View style={styles.giftCard}>
+        <Text style={styles.giftTitle}>New entry</Text>
         <Text style={styles.hint}>Photos stay on this device.</Text>
         <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
         <TextInput style={styles.input} value={storyDate} onChangeText={setStoryDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.onSurfaceVariant} autoCapitalize="none" />
@@ -392,13 +456,12 @@ export default function EventDetail({
         >
           <Text style={styles.primaryBtnText}>Save story entry</Text>
         </Pressable>
+        {stories.length === 0 ? <Text style={styles.hint}>No story entries yet for this event.</Text> : null}
+      </View>
 
-        {stories.length === 0 ? (
-          <Text style={styles.hint}>No story entries yet for this event.</Text>
-        ) : (
-          stories.slice().sort((a, b) => (a.dateISO < b.dateISO ? 1 : -1)).map((s) => (
-            <View key={s.id} style={styles.storyCard}>
-              <Text style={styles.storyDate}>{s.dateISO}</Text>
+      {stories.slice().sort((a, b) => (a.dateISO < b.dateISO ? 1 : -1)).map((s) => (
+            <View key={s.id} style={styles.giftCard}>
+              <Text style={styles.storyDate}>{formatHumanDate(s.dateISO, today)}</Text>
               <Text style={styles.storyText}>{s.text}</Text>
               <View style={styles.photoRow}>
                 {s.photoUris.map((u) => (
@@ -407,9 +470,7 @@ export default function EventDetail({
               </View>
               <Pressable onPress={() => onDeleteStory(s.id)}><Text style={styles.deleteText}>Delete entry</Text></Pressable>
             </View>
-          ))
-        )}
-      </View>
+      ))}
       </>)}
     </ScrollView>
   );
@@ -417,46 +478,91 @@ export default function EventDetail({
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: colors.background },
-  back: { color: colors.primary, fontFamily: fonts.jakartaBold, fontSize: 15, marginBottom: 12 },
-  hero: { backgroundColor: colors.surface, borderRadius: 24, padding: 20, overflow: 'hidden' },
-  heroPhoto: { width: '100%', height: 160, borderRadius: 16, marginBottom: 12 },
-  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sticker: { fontSize: 26 },
-  big: { fontSize: 56, color: colors.onSurface, marginTop: 8 },
-  title: { fontFamily: fonts.jakartaBold, fontSize: 20, color: colors.onSurface, marginTop: 4 },
-  banner: { fontFamily: fonts.jakartaBold, fontSize: 16, color: colors.accent, marginTop: 8 },
-  meta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4, lineHeight: 18 },
-  today: { fontFamily: fonts.jakartaBold, fontSize: 14, color: colors.accent, marginTop: 8 },
-  tabBar: { flexDirection: 'row', gap: 8, backgroundColor: colors.background, paddingVertical: 8, marginTop: 4 },
-  tabBtn: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingVertical: 9, alignItems: 'center' },
-  tabBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 13 },
-  tabBtnTextOn: { color: colors.background },
-  section: { marginTop: 16 },
-  sectionTitle: { fontFamily: fonts.grotesk, fontSize: 20, color: colors.onSurface, marginBottom: 8 },
-  rowText: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurface, marginTop: 6, lineHeight: 20 },
-  rowBtns: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  primaryBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 12 },
-  primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 15 },
-  dangerBtn: { flex: 1, borderWidth: 1, borderColor: colors.error, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 12 },
-  dangerBtnText: { color: colors.error, fontFamily: fonts.jakartaBold, fontSize: 15 },
-  secondaryBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 12 },
-  secondaryBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 14, textAlign: 'center' },
-  actionBtn: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, alignItems: 'center' },
-  actionBtnDisabled: { opacity: 0.45 },
-  actionBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 14 },
-  smallBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginTop: 8, alignSelf: 'flex-start' },
-  smallBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 13 },
-  inlineRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 8 },
-  miniCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 12, marginTop: 10 },
-  notice: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurface, marginTop: 10, lineHeight: 18 },
-  hint: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 8, lineHeight: 18 },
-  label: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.onSurface, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 12 },
-  input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 15, marginTop: 8 },
-  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  thumb: { width: 72, height: 72, borderRadius: 10 },
-  storyCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 14, marginTop: 12 },
-  storyDate: { fontFamily: fonts.jakartaBold, fontSize: 13, color: colors.primary },
-  storyText: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface, marginTop: 6, lineHeight: 21 },
-  deleteText: { color: colors.error, fontFamily: fonts.jakartaBold, fontSize: 13, marginTop: 10 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  topAction: { ...labelStyle, fontSize: 11, letterSpacing: 1.6, color: colors.primary },
+  topDelete: { ...labelStyle, fontSize: 11, letterSpacing: 1.6, color: colors.error },
+  back: { ...labelStyle, fontSize: 11, letterSpacing: 1.6, color: colors.onSurfaceVariant },
+  hero: { marginTop: 28 },
+  reached: { color: colors.success },
+  heroPhoto: { width: '100%', height: 220, borderRadius: 12, marginBottom: 18, backgroundColor: colors.surface },
+  addPhoto: { alignSelf: 'flex-start', marginBottom: 16 },
+  photoActions: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 12 },
+  removePhoto: { ...labelStyle, fontSize: 11, letterSpacing: 1.6, color: colors.error },
+  kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sticker: { fontSize: 16 },
+  kicker: { ...labelStyle, fontSize: 11, letterSpacing: 2.2, color: colors.onSurfaceVariant },
+  big: { fontSize: 72, lineHeight: 76, letterSpacing: -2, marginTop: 8 },
+  title: { fontFamily: fonts.grotesk, fontSize: 28, lineHeight: 34, color: colors.onSurface, marginTop: 4 },
+  rule: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginTop: 16 },
+  effectRule: { height: 2, marginTop: 16 },
+  banner: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.accent, marginTop: 12 },
+  meta: { fontFamily: fonts.mono, fontSize: 13, letterSpacing: 0.3, color: colors.onSurfaceVariant, marginTop: 12 },
+  notes: { fontFamily: fonts.jakartaMedium, fontSize: 15, lineHeight: 22, color: colors.onSurface, marginTop: 10 },
+  tabBar: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'flex-end',
+    alignSelf: 'stretch',
+    width: '100%',
+    backgroundColor: colors.background,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    marginTop: 22,
+  },
+  tabBtn: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    height: 44,
+  },
+  tabBtnText: { ...labelStyle, fontSize: 10, letterSpacing: 0.4, color: colors.onSurfaceVariant },
+  tabBtnTextOn: { color: colors.onSurface },
+  tabMark: { width: 16, height: 1, backgroundColor: 'transparent' },
+  tabMarkOn: { backgroundColor: colors.accent },
+  section: { marginTop: 8 },
+  giftCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: 16,
+    marginTop: 12,
+  },
+  giftTitle: { ...labelStyle, fontSize: 11, letterSpacing: 1.8, color: colors.accent },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cardCopy: { flex: 1 },
+  chevron: { fontFamily: fonts.jakartaMedium, fontSize: 18, color: colors.onSurfaceVariant },
+  sectionTitle: { ...labelStyle, fontSize: 11, letterSpacing: 1.8, color: colors.accent, marginTop: 22, marginBottom: 4 },
+  rowText: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface, marginTop: 8, lineHeight: 22 },
+  primaryBtn: {
+    height: 52, borderRadius: 26, backgroundColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center', marginTop: 16, paddingHorizontal: 22,
+  },
+  primaryBtnText: { ...labelStyle, fontSize: 12, letterSpacing: 1.8, color: colors.onPrimary },
+  secondaryBtn: { alignSelf: 'flex-start', marginTop: 12, paddingVertical: 6 },
+  secondaryBtnText: { ...labelStyle, fontSize: 12, letterSpacing: 1.4, color: colors.onSurface },
+  contactList: { marginTop: 4 },
+  actionBtn: { paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  actionBtnText: { fontFamily: fonts.jakartaMedium, fontSize: 16, color: colors.onSurface },
+  smallBtn: { marginTop: 10, alignSelf: 'flex-start' },
+  smallBtnText: { ...labelStyle, fontSize: 11, letterSpacing: 1.6, color: colors.primary },
+  inlineRow: { flexDirection: 'row', gap: 16, alignItems: 'center' },
+  miniCard: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingVertical: 12 },
+  notice: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.accent, marginTop: 12, lineHeight: 18 },
+  hint: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 6, lineHeight: 18 },
+  label: { ...labelStyle, fontSize: 11, letterSpacing: 1.4, color: colors.onSurfaceVariant, marginTop: 18 },
+  input: {
+    fontFamily: fonts.jakartaMedium, fontSize: 16, color: colors.onSurface,
+    paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border,
+  },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  thumb: { width: 72, height: 72, borderRadius: 8 },
+  storyCard: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingVertical: 14 },
+  storyDate: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 0.4, color: colors.primary },
+  storyText: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface, marginTop: 6, lineHeight: 22 },
+  deleteText: { ...labelStyle, fontSize: 11, letterSpacing: 1.2, color: colors.error, marginTop: 10 },
 });

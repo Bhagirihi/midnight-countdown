@@ -1,22 +1,26 @@
 // Pushes the current widget snapshot into the expo-widgets definitions
-// (src/widgets/*.tsx) via updateSnapshot. LAZY imports only: this file
-// itself is safe to import from Home, but the widget modules and the
-// expo-widgets native module are only evaluated inside the try/catch
-// below. In Expo Go that native module is absent, so the import throws
-// and we return updated:false — the app never crashes and never claims
-// a widget was placed. In a dev build, each of the four variants gets
-// the props for its size (see widgets.ts), so the widget gallery shows
-// real data, not the initial placeholder props.
+// (src/widgets/*.tsx) via updateSnapshot. The widget files call
+// createWidget at load time, and that looks up the ExpoWidgets native
+// module immediately. Expo Go does not ship that module, so importing
+// the files there prints "Cannot find native module 'ExpoWidgets'".
+// Check first and skip the imports entirely. A dev build has the
+// module, so the snapshots are pushed.
 //
 // NOTE: the imports below are literal paths on purpose — Metro
 // cannot resolve a variable import path, so a loop over path strings
 // would silently fail to bundle the widget modules.
+import { requireOptionalNativeModule } from 'expo';
 import type { WidgetSnapshot } from './events';
 import { widgetVariantProps } from './widgets';
+
+const unavailable = 'Widgets need a dev build: expo-widgets is not available in Expo Go, so nothing was pushed.';
 
 export async function syncWidgets(
   snapshot: WidgetSnapshot | null,
 ): Promise<{ updated: boolean; note: string }> {
+  if (!requireOptionalNativeModule('ExpoWidgets')) {
+    return { updated: false, note: unavailable };
+  }
   try {
     // Widget updateSnapshot is typed per widget's exact props; the
     // props built by widgetVariantProps match each widget, so the cast
@@ -38,8 +42,8 @@ export async function syncWidgets(
     yearDots.updateSnapshot(widgetVariantProps(snapshot, 'yearDots'));
     const yearLock = (await import('../widgets/MidnightYearLock')).default as unknown as Pusher;
     yearLock.updateSnapshot(widgetVariantProps(snapshot, 'yearLock'));
-    return { updated: true, note: 'Widget snapshots pushed (dev build only — in Expo Go widgets cannot run).' };
+    return { updated: true, note: 'Widget snapshots pushed.' };
   } catch {
-    return { updated: false, note: 'Widgets need a dev build: expo-widgets is not available in Expo Go, so nothing was pushed.' };
+    return { updated: false, note: unavailable };
   }
 }

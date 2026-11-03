@@ -60,6 +60,18 @@ export function todayISO(now = new Date()): string {
   return toISO(now);
 }
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Person-facing date: "Fri 25 Dec", plus the year when it is not this year. */
+export function formatHumanDate(iso: string, today = todayISO()): string {
+  const p = parseDate(iso);
+  if (!p) return iso;
+  const weekday = WEEKDAYS[new Date(p.year, p.month - 1, p.day).getDay()];
+  const base = `${weekday} ${p.day} ${MONTHS[p.month - 1]}`;
+  return p.year === Number(today.slice(0, 4)) ? base : `${base} ${p.year}`;
+}
+
 export function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }

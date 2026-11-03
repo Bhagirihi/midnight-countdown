@@ -1,16 +1,11 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, labelStyle, radii, spacing } from '../lib/theme';
+import { colors, fonts, labelStyle } from '../lib/theme';
+import BrandMark from './BrandMark';
 
-// HONESTY RULES (load-bearing):
-// - Google / Apple have NO provider configured in this app. Tapping them
-//   shows an honest "not connected yet" alert and offers Guest — never a
-//   fake sign-in, never a fake account.
-// - Email sign-in is LOCAL ONLY: the address is stored on this device via
-//   AsyncStorage. No server, no verification email, no cloud claim. The
-//   screen carries that note in plain text.
+// Email is optional and stays on this device. There is no server account.
+// Google and Apple stay out until a provider is actually connected.
 export default function AuthScreen({
   onGuest,
   onLocalEmail,
@@ -20,17 +15,7 @@ export default function AuthScreen({
 }) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  const notConnected = () => {
-    Alert.alert(
-      'Not connected yet',
-      'Google / Apple sign-in is not connected in this build. Continue as a guest to try the app.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue as guest', onPress: onGuest },
-      ],
-    );
-  };
+  const [showEmail, setShowEmail] = useState(false);
 
   const continueEmail = () => {
     const trimmed = email.trim();
@@ -44,15 +29,20 @@ export default function AuthScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <View style={styles.card}>
-        <Text style={styles.kicker}>WELCOME BACK</Text>
-        <Text style={styles.title}>LOGIN /{'\n'}SIGN UP</Text>
-        <Text style={styles.body}>
-          Or skip it — guest mode needs nothing.
-        </Text>
+      <View style={styles.column}>
+      <View>
+        <BrandMark align="left" />
+        <Text style={styles.title}>Your days,{'\n'}kept.</Text>
+      </View>
+      <View>
+      <Text style={styles.copy}>Private to this phone. Nothing to create.</Text>
 
-        <View style={styles.inputWrap}>
-          <Ionicons name="mail-outline" size={20} color={colors.onSurfaceVariant} style={styles.inputIcon} />
+      <Pressable style={styles.primary} onPress={onGuest}>
+        <Text style={styles.primaryText}>BEGIN</Text>
+      </Pressable>
+
+      {showEmail ? (
+        <View style={styles.emailBlock}>
           <TextInput
             style={styles.input}
             placeholder="Email address"
@@ -63,65 +53,45 @@ export default function AuthScreen({
             keyboardType="email-address"
             returnKeyType="done"
             onSubmitEditing={continueEmail}
+            autoFocus
           />
+          <View style={styles.inputRule} />
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <Pressable onPress={continueEmail} hitSlop={8}>
+            <Text style={styles.link}>Save email</Text>
+          </Pressable>
         </View>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Pressable style={styles.primary} onPress={continueEmail}>
-          <Text style={styles.primaryText}>CONTINUE</Text>
+      ) : (
+        <Pressable onPress={() => setShowEmail(true)} hitSlop={12} style={styles.linkWrap}>
+          <Text style={styles.link}>Add an email for this phone</Text>
         </Pressable>
-
-        <Pressable style={styles.secondary} onPress={notConnected}>
-          <Ionicons name="logo-google" size={18} color={colors.onSurface} />
-          <Text style={styles.secondaryText}>CONTINUE WITH GOOGLE</Text>
-        </Pressable>
-        <Pressable style={styles.secondary} onPress={notConnected}>
-          <Ionicons name="logo-apple" size={18} color={colors.onSurface} />
-          <Text style={styles.secondaryText}>CONTINUE WITH APPLE</Text>
-        </Pressable>
-
-        <Pressable onPress={onGuest} hitSlop={12}>
-          <Text style={styles.guest}>CONTINUE AS GUEST</Text>
-        </Pressable>
-
-        <Text style={styles.note}>
-          Email sign-in stays on this device. No server, no cloud sync.
-          Google / Apple not connected yet.
-        </Text>
+      )}
+      </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.gutter, justifyContent: 'center' },
-  card: {
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radii.xl, padding: spacing.cardPadding, gap: 14,
-  },
-  kicker: { ...labelStyle, fontSize: 12, color: colors.onSurfaceVariant },
-  title: { fontFamily: fonts.grotesk, fontSize: 30, lineHeight: 30, letterSpacing: -0.75, color: colors.onSurface },
-  body: { fontFamily: fonts.jakartaMedium, fontSize: 14, lineHeight: 21, color: colors.onSurfaceVariant },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, paddingHorizontal: 16, height: 52,
-  },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurface, height: '100%' },
-  error: { fontFamily: fonts.jakartaMedium, fontSize: 12, color: colors.error },
+  root: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
+  column: { flex: 1, justifyContent: 'space-between' },
+  title: { fontFamily: fonts.grotesk, fontSize: 40, lineHeight: 44, letterSpacing: -1, color: colors.onSurface, marginTop: 36 },
+  copy: { fontFamily: fonts.jakartaMedium, fontSize: 15, lineHeight: 22, color: colors.onSurfaceVariant, marginBottom: 16 },
   primary: {
-    height: 48, borderRadius: radii.full, backgroundColor: colors.primary,
+    height: 52, borderRadius: 26, backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 24, shadowOffset: { width: 0, height: 8 },
-    elevation: 0,
   },
-  primaryText: { ...labelStyle, fontSize: 12, color: colors.onPrimary },
-  secondary: {
-    height: 48, borderRadius: radii.full, backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.border,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+  primaryText: { ...labelStyle, fontSize: 12, letterSpacing: 2.2, color: colors.onPrimary },
+  emailBlock: { marginTop: 22 },
+  input: {
+    fontFamily: fonts.jakartaMedium, fontSize: 16, color: colors.onSurface,
+    paddingVertical: 12,
   },
-  secondaryText: { ...labelStyle, fontSize: 12, color: colors.onSurface },
-  guest: { ...labelStyle, fontSize: 12, color: colors.accent, textAlign: 'center', paddingVertical: 4 },
-  note: { fontFamily: fonts.jakartaMedium, fontSize: 12, lineHeight: 17, color: colors.onSurfaceVariant, textAlign: 'center' },
+  inputRule: { height: StyleSheet.hairlineWidth, backgroundColor: colors.accent },
+  error: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.error, marginTop: 8 },
+  linkWrap: { alignItems: 'center', paddingTop: 18 },
+  link: {
+    ...labelStyle, fontSize: 11, letterSpacing: 1.6, color: colors.accent,
+    textAlign: 'center', marginTop: 16,
+  },
 });

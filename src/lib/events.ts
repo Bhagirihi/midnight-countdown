@@ -274,16 +274,16 @@ export interface RecommendedEvent {
 
 export const RECOMMENDED_EVENTS: RecommendedEvent[] = [
   {
-    id: 'rec-concert', title: 'Example: Summer Stadium Concert', category: 'Music',
-    description: 'EXAMPLE ONLY — a placeholder for a big shared concert countdown. No real artist or date is attached; pick your own date when you join.',
+    id: 'rec-concert', title: 'Summer stadium concert', category: 'Music',
+    description: 'A big night out. You set the date.',
   },
   {
-    id: 'rec-album', title: 'Example: New Album Drop', category: 'Music',
-    description: 'EXAMPLE ONLY — a placeholder for counting down to a shared album release. No real artist or date is attached; pick your own date when you join.',
+    id: 'rec-album', title: 'New album', category: 'Music',
+    description: 'Count down to a release. You set the date.',
   },
   {
-    id: 'rec-film', title: 'Example: Global Film Premiere', category: 'Film',
-    description: 'EXAMPLE ONLY — a placeholder for a shared premiere countdown. No real film or date is attached; pick your own date when you join.',
+    id: 'rec-film', title: 'Film premiere', category: 'Film',
+    description: 'Opening night. You set the date.',
   },
 ];
 

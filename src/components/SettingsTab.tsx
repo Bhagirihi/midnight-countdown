@@ -1,15 +1,6 @@
-// Settings — card views on the Settings tab itself, no sub-screens
-// to tap through. Each card holds one thing, fully visible:
-// Subscription, Notifications, App Lock & PIN, Discover.
-// Removed at the user's ask: the "What is NOT real yet" list (was in
-// Discover) and all Privacy & Policy text / Terms / Privacy rows —
-// App Lock & PIN now lives in one single card, not a Privacy section.
-// Subscription pricing is still DESIGN PREVIEW ONLY: no purchase, no
-// RevenueCat, no store product — Upgrade/Restore only show a preview
-// alert and never charge or change the plan.
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { colors, fonts } from '../lib/theme';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { colors, fonts, labelStyle } from '../lib/theme';
 import type { Settings } from '../lib/events';
 import { hashPin } from '../lib/applock';
 
@@ -22,63 +13,32 @@ export default function SettingsTab({
   onOpenSocial?: () => void;
   onOpenWidgets?: () => void;
 }) {
-  const [region, setRegion] = useState<'india' | 'global'>('india');
-  const [plan, setPlan] = useState<'monthly' | 'yearly'>('yearly');
   const [pin, setPin] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
   const [pinMsg, setPinMsg] = useState('');
+  const who = !authLabel || authLabel.toUpperCase() === 'GUEST' ? 'Guest' : authLabel.toLowerCase();
 
   const savePin = () => {
-    if (!/^\d{4,6}$/.test(pin)) { setPinMsg('PIN must be 4–6 digits.'); return; }
-    if (pin !== pinConfirm) { setPinMsg('PINs do not match.'); return; }
+    if (!/^\d{4,6}$/.test(pin)) { setPinMsg('Use 4 to 6 digits.'); return; }
+    if (pin !== pinConfirm) { setPinMsg('Those PINs do not match.'); return; }
     onToggle({ appLockPinHash: hashPin(pin), appLockEnabled: true });
     setPin(''); setPinConfirm('');
-    setPinMsg('App-lock is on. Unlock with biometrics (if enrolled) or this PIN next time the app opens.');
+    setPinMsg('Lock is on. It asks again the next time you open the app.');
   };
 
   return (
-    <ScrollView style={styles.wrap} contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
-      <Text style={styles.heading}>Settings</Text>
-      <Text style={styles.meta}>{authLabel}</Text>
+    <ScrollView style={styles.wrap} contentContainerStyle={styles.content}>
+      <Text style={styles.kicker}>SETTINGS</Text>
+      <Text style={styles.heading}>Preferences</Text>
+      <Text style={styles.meta}>{who}</Text>
 
-      {/* Subscription card */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Subscription</Text>
-        <Text style={styles.body}>Current plan: Free — no purchase, no payment method, no expiry.</Text>
-        <View style={styles.regionRow}>
-          <Pressable style={[styles.regionBtn, region === 'india' && styles.regionBtnOn]} onPress={() => setRegion('india')}>
-            <Text style={[styles.regionText, region === 'india' && styles.regionTextOn]}>India (₹)</Text>
-          </Pressable>
-          <Pressable style={[styles.regionBtn, region === 'global' && styles.regionBtnOn]} onPress={() => setRegion('global')}>
-            <Text style={[styles.regionText, region === 'global' && styles.regionTextOn]}>Global ($)</Text>
-          </Pressable>
-        </View>
-        <Pressable style={[styles.planRow, plan === 'monthly' && styles.planRowOn]} onPress={() => setPlan('monthly')}>
-          <Text style={styles.planTitle}>Pro Monthly</Text>
-          <Text style={styles.planPrice}>{region === 'india' ? '₹49' : '$1.49'} / month</Text>
-        </Pressable>
-        <Pressable style={[styles.planRow, plan === 'yearly' && styles.planRowOn]} onPress={() => setPlan('yearly')}>
-          <Text style={styles.planTitle}>Pro Yearly — Best value</Text>
-          <Text style={styles.planPrice}>{region === 'india' ? '₹399' : '$11.99'} / year</Text>
-        </Pressable>
-        <Text style={styles.hint}>
-          {region === 'india' ? 'Yearly = ₹33 / month, saves 32% vs monthly. ' : 'Yearly = $1.00 / month, saves 33% vs monthly. '}
-          Pro includes unlimited events, all widgets, all themes &amp; fonts, Story, gift planning, and contact &amp; calendar import.
-        </Text>
-        <Pressable style={styles.primaryBtn} onPress={() => Alert.alert('Design preview', `Pro ${plan === 'monthly' ? 'Monthly' : 'Yearly'} purchase is not configured yet. This is only a design preview — no charge will be made and your plan stays Free.`)}>
-          <Text style={styles.primaryBtnText}>Upgrade to Pro {plan === 'monthly' ? 'Monthly' : 'Yearly'}</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryBtn} onPress={() => Alert.alert('Design preview', 'Restore purchase is not configured yet. Your plan stays Free.')}>
-          <Text style={styles.secondaryText}>Restore purchase</Text>
-        </Pressable>
-        <Text style={styles.hint}>Design preview only — prices are a recommendation, not store prices yet.</Text>
-      </View>
-
-      {/* Notifications card — just the two names + toggle switches */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Notifications</Text>
+        <Text style={styles.section}>Reminders</Text>
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Smart reminder</Text>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleLabel}>The week before</Text>
+            <Text style={styles.toggleHint}>Seven days, three days, the day before, and the day.</Text>
+          </View>
           <Switch
             value={settings.remindersEnabled}
             onValueChange={(v) => onToggle({ remindersEnabled: v })}
@@ -86,8 +46,12 @@ export default function SettingsTab({
             thumbColor={colors.onSurface}
           />
         </View>
+        <View style={styles.hairline} />
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Milestone notification</Text>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleLabel}>Milestones</Text>
+            <Text style={styles.toggleHint}>A note when a hundred days or a year arrives.</Text>
+          </View>
           <Switch
             value={settings.milestoneNotifications}
             onValueChange={(v) => onToggle({ milestoneNotifications: v })}
@@ -97,11 +61,13 @@ export default function SettingsTab({
         </View>
       </View>
 
-      {/* App Lock & PIN — one single card */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>App Lock &amp; PIN</Text>
+        <Text style={styles.section}>Lock</Text>
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>App Lock</Text>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleLabel}>Ask to unlock</Text>
+            <Text style={styles.toggleHint}>{settings.appLockPinHash ? 'A PIN is set.' : 'No PIN yet.'}</Text>
+          </View>
           <Switch
             value={settings.appLockEnabled}
             onValueChange={(v) => onToggle({ appLockEnabled: v })}
@@ -109,32 +75,37 @@ export default function SettingsTab({
             thumbColor={colors.onSurface}
           />
         </View>
-        <Text style={styles.hint}>{settings.appLockPinHash ? 'PIN set.' : 'No PIN set.'} Forgotten PIN? Sign out to clear the lock.</Text>
-        <Text style={styles.label}>Set / change app PIN (4–6 digits)</Text>
+        <View style={styles.hairline} />
         <TextInput style={styles.input} value={pin} onChangeText={setPin} placeholder="New PIN" placeholderTextColor={colors.onSurfaceVariant} keyboardType="number-pad" secureTextEntry />
+        <View style={styles.hairline} />
         <TextInput style={styles.input} value={pinConfirm} onChangeText={setPinConfirm} placeholder="Confirm PIN" placeholderTextColor={colors.onSurfaceVariant} keyboardType="number-pad" secureTextEntry />
-        <Pressable style={styles.secondaryBtn} onPress={savePin}>
-          <Text style={styles.secondaryText}>Save PIN &amp; turn app-lock on</Text>
+        <Pressable style={styles.save} onPress={savePin}>
+          <Text style={styles.saveText}>Save PIN</Text>
         </Pressable>
         {settings.appLockPinHash || settings.appLockEnabled ? (
-          <Pressable style={styles.secondaryBtn} onPress={() => { onToggle({ appLockEnabled: false, appLockPinHash: null }); setPinMsg('App-lock and PIN cleared.'); }}>
-            <Text style={styles.secondaryText}>Clear app-lock &amp; PIN</Text>
-          </Pressable>
+          <>
+            <View style={styles.hairline} />
+            <Pressable style={styles.row} onPress={() => { onToggle({ appLockEnabled: false, appLockPinHash: null }); setPinMsg('Lock cleared.'); }}>
+              <Text style={styles.rowText}>Clear lock</Text>
+            </Pressable>
+          </>
         ) : null}
-        {pinMsg ? <Text style={styles.hint}>{pinMsg}</Text> : null}
+        <Text style={styles.note}>{pinMsg || 'A forgotten PIN is cleared by signing out.'}</Text>
       </View>
 
-      {/* Discover card */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Discover</Text>
+        <Text style={styles.section}>Library</Text>
         {onOpenSocial ? (
-          <Pressable style={styles.secondaryBtn} onPress={onOpenSocial}>
-            <Text style={styles.secondaryText}>Recommended Events →</Text>
+          <Pressable style={styles.row} onPress={onOpenSocial}>
+            <Text style={styles.rowText}>Templates</Text>
+            <Text style={styles.chevron}>→</Text>
           </Pressable>
         ) : null}
+        {onOpenSocial && onOpenWidgets ? <View style={styles.hairline} /> : null}
         {onOpenWidgets ? (
-          <Pressable style={styles.secondaryBtn} onPress={onOpenWidgets}>
-            <Text style={styles.secondaryText}>Widgets →</Text>
+          <Pressable style={styles.row} onPress={onOpenWidgets}>
+            <Text style={styles.rowText}>Widgets</Text>
+            <Text style={styles.chevron}>→</Text>
           </Pressable>
         ) : null}
       </View>
@@ -144,27 +115,34 @@ export default function SettingsTab({
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: colors.background },
-  heading: { fontFamily: fonts.grotesk, fontSize: 28, color: colors.onSurface },
-  meta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4 },
-  card: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, marginTop: 16, borderWidth: 1, borderColor: colors.border },
-  cardTitle: { fontFamily: fonts.grotesk, fontSize: 20, color: colors.onSurface },
-  body: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurface, marginTop: 8, lineHeight: 21 },
-  hint: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 8, lineHeight: 18 },
-  label: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.onSurface, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 14 },
-  input: { backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 15, marginTop: 8 },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
-  toggleLabel: { fontFamily: fonts.jakartaBold, fontSize: 15, color: colors.onSurface },
-  regionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  regionBtn: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, alignItems: 'center' },
-  regionBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  regionText: { color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 14 },
-  regionTextOn: { color: colors.background, fontFamily: fonts.jakartaBold },
-  planRow: { borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12, marginTop: 10 },
-  planRowOn: { borderColor: colors.primary, borderWidth: 2 },
-  planTitle: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 15 },
-  planPrice: { color: colors.onSurface, fontFamily: fonts.grotesk, fontSize: 20, marginTop: 2 },
-  primaryBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 12 },
-  primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 15 },
-  secondaryBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 10 },
-  secondaryText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 14 },
+  content: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 120 },
+  kicker: { ...labelStyle, fontSize: 11, letterSpacing: 2.4, color: colors.onSurfaceVariant },
+  heading: { fontFamily: fonts.grotesk, fontSize: 34, color: colors.onSurface, marginTop: 8 },
+  meta: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurfaceVariant, marginTop: 4 },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+    marginTop: 16,
+  },
+  section: { ...labelStyle, fontSize: 11, letterSpacing: 1.8, color: colors.accent },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14 },
+  toggleCopy: { flex: 1 },
+  toggleLabel: { fontFamily: fonts.jakartaMedium, fontSize: 16, color: colors.onSurface },
+  toggleHint: { fontFamily: fonts.jakartaMedium, fontSize: 13, lineHeight: 18, color: colors.onSurfaceVariant, marginTop: 3 },
+  hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  input: {
+    fontFamily: fonts.mono, fontSize: 16, letterSpacing: 4, color: colors.onSurface,
+    paddingVertical: 14,
+  },
+  save: { paddingVertical: 14 },
+  saveText: { ...labelStyle, fontSize: 12, letterSpacing: 1.6, color: colors.primary },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16 },
+  rowText: { fontFamily: fonts.jakartaMedium, fontSize: 16, color: colors.onSurface },
+  chevron: { fontFamily: fonts.jakartaMedium, fontSize: 16, color: colors.onSurfaceVariant },
+  note: { fontFamily: fonts.jakartaMedium, fontSize: 13, lineHeight: 18, color: colors.onSurfaceVariant, marginTop: 10 },
 });

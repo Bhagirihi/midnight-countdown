@@ -19,17 +19,19 @@
 import { useRef, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts } from '../lib/theme';
+import { colors, fonts, labelStyle } from '../lib/theme';
+import { formatHumanDate } from '../lib/dates';
 import { safeIcon, type CountdownEvent } from '../lib/events';
 import { maybeAskForReview } from '../lib/review';
 
 export default function ShareCard({
-  event, label, targetISO, eventCount,
+  event, label, targetISO, eventCount, compact,
 }: {
   event: CountdownEvent;
   label: string; // e.g. "D-42" or "Day 12"
   targetISO: string;
   eventCount: number;
+  compact?: boolean;
 }) {
   // any: react-native-view-shot's captureRef wants a native view ref, and
   // the RN 19 View component type does not satisfy it directly.
@@ -61,7 +63,7 @@ export default function ShareCard({
       // module): share the same information as text instead of failing.
       try {
         await Share.share({ message: shareText });
-        setNote('Card image needs a dev build — shared as text instead.');
+        setNote('Shared as text.');
       } catch {
         setNote('Sharing is not available on this device.');
       }
@@ -70,22 +72,38 @@ export default function ShareCard({
     }
   };
 
+  const when = event.type === 'countup'
+    ? `Started ${formatHumanDate(event.dateISO)}`
+    : formatHumanDate(targetISO);
+
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Share card</Text>
-      <Text style={styles.hint}>Tap Share card, then pick WhatsApp or any app.</Text>
-      <View ref={cardRef} collapsable={false} style={[styles.card, { borderColor: event.color }]}>
+    <View style={compact ? styles.compact : styles.section}>
+      {compact ? null : (
+        <>
+          <Text style={styles.sectionTitle}>Share card</Text>
+          <Text style={styles.hint}>Tap Share, then pick an app.</Text>
+        </>
+      )}
+      <View style={compact ? styles.captureSlot : undefined} pointerEvents={compact ? 'none' : 'auto'}>
+      <View
+        ref={cardRef}
+        collapsable={false}
+        accessibilityElementsHidden={!!compact}
+        importantForAccessibility={compact ? 'no-hide-descendants' : 'auto'}
+        style={[styles.card, { borderColor: event.color }, compact && styles.cardCapture]}
+      >
         <View style={styles.cardTop}>
           <Ionicons name={safeIcon(event.icon) as never} size={28} color={event.color} />
           {event.sticker ? <Text style={styles.sticker}>{event.sticker}</Text> : null}
         </View>
         <Text style={styles.big}>{label}</Text>
         <Text style={styles.title}>{event.title}</Text>
-        <Text style={styles.date}>{event.type === 'countup' ? `Started ${event.dateISO}` : targetISO}</Text>
-        <Text style={styles.footer}>A DAY AWAY · Every day that matters, counted down.</Text>
+        <Text style={styles.date}>{when}</Text>
+        <Text style={styles.footer}>A DAY AWAY</Text>
       </View>
-      <Pressable style={styles.btn} onPress={shareCard} disabled={busy}>
-        <Text style={styles.btnText}>{busy ? 'Preparing card…' : 'Share card'}</Text>
+      </View>
+      <Pressable style={[styles.btn, compact && styles.btnCompact]} onPress={shareCard} disabled={busy}>
+        <Text style={[styles.btnText, compact && styles.btnTextCompact]}>{busy ? 'Preparing…' : 'Share'}</Text>
       </Pressable>
       {note ? <Text style={styles.note}>{note}</Text> : null}
     </View>
@@ -94,6 +112,13 @@ export default function ShareCard({
 
 const styles = StyleSheet.create({
   section: { marginTop: 12 },
+  compact: { alignSelf: 'stretch' },
+  captureSlot: { height: 0, overflow: 'hidden' },
+  cardCapture: { position: 'absolute', opacity: 0, left: 0, top: 0, width: 320 },
+  btnCompact: {
+    marginTop: 14, height: 44, paddingHorizontal: 0, backgroundColor: 'transparent',
+    alignItems: 'flex-start', justifyContent: 'center',
+  },
   sectionTitle: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 16, marginBottom: 8 },
   hint: { color: colors.onSurfaceVariant, fontFamily: fonts.jakartaMedium, fontSize: 13, marginBottom: 12, lineHeight: 18 },
   card: {
@@ -110,5 +135,6 @@ const styles = StyleSheet.create({
   footer: { color: colors.onSurfaceVariant, fontFamily: fonts.jakartaBold, fontSize: 11, letterSpacing: 1.2, marginTop: 20 },
   btn: { backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 12 },
   btnText: { color: colors.onPrimary, fontFamily: fonts.jakartaBold, fontSize: 15 },
+  btnTextCompact: { ...labelStyle, fontSize: 12, letterSpacing: 1.8, color: colors.onSurface },
   note: { color: colors.onSurfaceVariant, fontFamily: fonts.jakartaMedium, fontSize: 13, marginTop: 8 },
 });

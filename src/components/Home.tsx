@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts } from '../lib/theme';
-import { countdownInfo, milestones, todayISO, turningInfo } from '../lib/dates';
+import { BackHandler, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, fonts, labelStyle } from '../lib/theme';
+import { countdownInfo, formatHumanDate, milestones, todayISO, turningInfo } from '../lib/dates';
 import { wizardDraftToEventInput, type WizardDraft } from '../lib/wizard';
 import { syncWidgets } from '../lib/widgetSync';
 import type { WidgetVariant } from '../lib/widgets';
 import {
-  RECOMMENDED_EVENTS, capPhotos, emptyGiftPlan, exampleEvents, loadComments, loadEvents, loadGiftPlans,
-  loadSettings, loadStories, loadWidgetSnapshot, newId, safeIcon, saveComments, saveEvents, saveGiftPlans,
+  RECOMMENDED_EVENTS, capPhotos, emptyGiftPlan, exampleEvents, loadEvents, loadGiftPlans,
+  loadSettings, loadStories, loadWidgetSnapshot, newId, saveEvents, saveGiftPlans,
   saveSettings, saveStories, writeWidgetSnapshot,
-  type CountdownEvent, type GiftPlan, type LocalComment, type Settings, type StoryEntry, type WidgetSnapshot,
+  type CountdownEvent, type GiftPlan, type Settings, type StoryEntry, type WidgetSnapshot,
 } from '../lib/events';
 import type { ImportedContact } from '../lib/contacts';
 import type { ImportedCalendarEvent } from '../lib/calendarImport';
@@ -34,7 +33,15 @@ import FirstEventWizard from './FirstEventWizard';
 // always on top of the list, plus the empty-state buttons.
 type Tab = 'home' | 'profile' | 'settings';
 type Filter = 'all' | 'upcoming' | 'counting' | 'repeats';
-type ViewState = { kind: 'list' } | { kind: 'editor'; event: CountdownEvent | null } | { kind: 'detail'; id: string } | { kind: 'contacts' } | { kind: 'calendar' } | { kind: 'social' } | { kind: 'widgets' };
+type EditorFrom = 'list' | 'detail' | 'contacts' | 'calendar' | 'social';
+type ViewState = { kind: 'list' } | { kind: 'editor'; event: CountdownEvent | null; step?: number; from?: EditorFrom } | { kind: 'detail'; id: string } | { kind: 'contacts' } | { kind: 'calendar' } | { kind: 'social' } | { kind: 'widgets' };
+
+function numeralColor(type: 'countdown' | 'countup', repeat: string, daysDiff: number, isToday: boolean): string {
+  if (isToday) return colors.success;
+  if (type === 'countdown' && daysDiff >= 0 && daysDiff <= 7) return colors.primary;
+  if (type === 'countup' || repeat !== 'none') return colors.secondary;
+  return colors.onSurface;
+}
 
 const FONT_FAMILY: Record<string, string> = {
   grotesk: fonts.grotesk,
@@ -43,16 +50,16 @@ const FONT_FAMILY: Record<string, string> = {
 };
 
 export default function Home({
-  authLabel, onReplayOnboarding, onSignOut, onResetFromZero,
+  authLabel, starterPhoto, onReplayOnboarding, onSignOut, onResetFromZero,
 }: {
   authLabel: string;
+  starterPhoto: string | null;
   onReplayOnboarding: () => void;
   onSignOut: () => void;
   onResetFromZero: () => void;
 }) {
   const [events, setEvents] = useState<CountdownEvent[]>([]);
   const [stories, setStories] = useState<StoryEntry[]>([]);
-  const [comments, setComments] = useState<LocalComment[]>([]);
   const [settings, setSettings] = useState<Settings>({ remindersEnabled: true, milestoneNotifications: false, pinnedEventId: null, widgetVariant: 'medium', displayName: '', appLockEnabled: false, appLockPinHash: null });
   const [giftPlans, setGiftPlans] = useState<GiftPlan[]>([]);
   const [unlocked, setUnlocked] = useState(false);
@@ -67,8 +74,61 @@ export default function Home({
   // Skip never persists a flag that would hide the empty-state offer.
   const [showWizard, setShowWizard] = useState(false);
   const wizardFinishing = useRef(false);
+  const editorBackRef = useRef<(() => boolean) | null>(null);
+  const wizardBackRef = useRef<(() => boolean) | null>(null);
 
   const today = todayISO();
+
+  // Android back and the browser back button follow the on-screen Back
+  // path: a step inside the editor or wizard, then the screen you opened
+  // this one from. At Home the press is left to the system.
+  const hardwareBack = useCallback((): 'handled' | 'root' | 'exit' => {
+    if (loaded && settings.appLockEnabled && !unlocked) return 'handled';
+    if (showWizard) {
+      if (wizardBackRef.current?.()) return 'handled';
+      setShowWizard(false);
+      return 'root';
+    }
+    if (view.kind === 'editor') {
+      if (editorBackRef.current?.()) return 'handled';
+      if (view.from === 'detail' && view.event) setView({ kind: 'detail', id: view.event.id });
+      else if (view.from === 'contacts') setView({ kind: 'contacts' });
+      else if (view.from === 'calendar') setView({ kind: 'calendar' });
+      else if (view.from === 'social') setView({ kind: 'social' });
+      else setView({ kind: 'list' });
+      return view.from && view.from !== 'list' ? 'handled' : 'root';
+    }
+    if (view.kind === 'detail' || view.kind === 'contacts' || view.kind === 'calendar') {
+      setView({ kind: 'list' });
+      return tab === 'home' ? 'root' : 'handled';
+    }
+    if (view.kind === 'social' || view.kind === 'widgets') {
+      setView({ kind: 'list' });
+      setTab('settings');
+      return 'handled';
+    }
+    if (tab !== 'home') {
+      setTab('home');
+      return 'root';
+    }
+    return 'exit';
+  }, [loaded, settings.appLockEnabled, unlocked, showWizard, view, tab]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const atRoot = view.kind === 'list' && tab === 'home' && !showWizard && !(loaded && settings.appLockEnabled && !unlocked);
+      if (!atRoot && window.history.state?.midnightBack !== 1) {
+        window.history.pushState({ midnightBack: 1 }, '');
+      }
+      const onPop = () => {
+        if (hardwareBack() === 'handled') window.history.pushState({ midnightBack: 1 }, '');
+      };
+      window.addEventListener('popstate', onPop);
+      return () => window.removeEventListener('popstate', onPop);
+    }
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => hardwareBack() !== 'exit');
+    return () => sub.remove();
+  }, [hardwareBack, view.kind, tab, showWizard, loaded, settings.appLockEnabled, unlocked]);
 
   const refreshSnapshot = useCallback(async (list: CountdownEvent[], s: Settings, storyList: StoryEntry[]) => {
     const snap = await writeWidgetSnapshot(list, s.pinnedEventId, (e) => {
@@ -90,10 +150,10 @@ export default function Home({
 
   useEffect(() => {
     (async () => {
-      const [ev, st, cm, se, snap, gp] = await Promise.all([
-        loadEvents(), loadStories(), loadComments(), loadSettings(), loadWidgetSnapshot(), loadGiftPlans(),
+      const [ev, st, se, snap, gp] = await Promise.all([
+        loadEvents(), loadStories(), loadSettings(), loadWidgetSnapshot(), loadGiftPlans(),
       ]);
-      setEvents(ev); setStories(st); setComments(cm); setSettings(se); setSnapshot(snap); setGiftPlans(gp);
+      setEvents(ev); setStories(st); setSettings(se); setSnapshot(snap); setGiftPlans(gp);
       setLoaded(true);
       if (ev.length === 0) {
         setShowWizard(true);
@@ -116,7 +176,7 @@ export default function Home({
     wizardFinishing.current = true;
     const input = wizardDraftToEventInput(draft, today);
     const event: CountdownEvent = {
-      id: newId(), ...input, font: 'grotesk', effect: 'none', photoUri: null,
+      id: newId(), ...input, font: 'grotesk', effect: 'none',
       relationship: 'Other', contactName: null, contactPhone: null, contactEmail: null, contactPhotoUri: null, notes: '',
     };
     const list = [...events, event];
@@ -147,46 +207,46 @@ export default function Home({
   };
 
 
-  const insets = useSafeAreaInsets();
-
-  // Shared event card, used by both the bucket grid and the filtered
-  // grid — one card definition, so a change lands everywhere.
-  const renderCard = ({ e, info }: { e: CountdownEvent; info: ReturnType<typeof countdownInfo> }) => {
+  const renderEvent = ({ e, info }: { e: CountdownEvent; info: ReturnType<typeof countdownInfo> }) => {
     const turning = turningInfo(e.dateISO, e.category, e.repeat, today);
-    // Photo cards (the pattern every top countdown app uses): a picked
-    // photo sits behind the number with a dark scrim, so the card looks
-    // like the event instead of a plain tile. No photo → plain tile.
+    const tone = numeralColor(e.type, e.repeat, info.daysDiff, info.isToday);
+    const when = e.type === 'countup' ? `Since ${formatHumanDate(e.dateISO, today)}` : formatHumanDate(info.targetISO, today);
+    const label = info.isToday && e.type === 'countdown' ? 'Today' : info.label;
+    const isNext = nextUp?.e.id === e.id;
     return (
-      <Pressable key={e.id} onPress={() => setView({ kind: 'detail', id: e.id })} style={[styles.card, effectBorder(e.effect, e.color)]}>
-        {e.photoUri ? (
-          <>
-            <Image source={{ uri: e.photoUri }} style={styles.cardPhoto} />
-            <View style={styles.cardScrim} />
-          </>
-        ) : null}
-        <View style={styles.cardContent}>
-          <View style={styles.cardRow}>
-            <Ionicons name={safeIcon(e.icon) as never} size={20} color={e.color} />
-            {e.sticker ? <Text style={styles.sticker}>{e.sticker}</Text> : null}
-            <Text style={styles.cardCategory} numberOfLines={1}>{e.category.toUpperCase()}{e.repeat !== 'none' ? ` · ${e.repeat}` : ''}</Text>
+      <Pressable
+        key={e.id}
+        onPress={() => setView({ kind: 'detail', id: e.id })}
+        style={[styles.eventCard, e.effect !== 'none' ? effectBorder(e.effect, e.color) : null]}
+      >
+        <View style={styles.eventCardBody}>
+          {e.photoUri ? (
+            <Image source={{ uri: e.photoUri }} style={styles.cardThumb} resizeMode="cover" />
+          ) : null}
+          <View style={styles.rowCardCopy}>
+            {isNext ? <Text style={styles.nextMark}>NEXT</Text> : null}
+            <Text style={styles.eventCardTitle} numberOfLines={1}>{e.title}</Text>
+            <Text style={styles.cardMeta} numberOfLines={1}>{when} · {e.category}</Text>
+            {turning ? <Text style={styles.cardBanner}>{turning.label}</Text> : null}
           </View>
-          <Text style={[styles.cardBig, { fontFamily: FONT_FAMILY[e.font] ?? fonts.grotesk }]}>{info.label}</Text>
-          <Text style={styles.cardTitle} numberOfLines={2}>{e.title}</Text>
-          {turning ? <Text style={styles.cardBanner}>🎉 {turning.label}</Text> : null}
-          <Text style={styles.cardMeta}>{e.type === 'countup' ? `Since ${e.dateISO}` : info.targetISO}{info.isToday ? ' · Today!' : ''}</Text>
+          <Text style={[styles.eventCardBig, { color: tone, fontFamily: FONT_FAMILY[e.font] ?? fonts.grotesk }]}>
+            {label}
+          </Text>
         </View>
       </Pressable>
     );
   };
 
+  const findOn = events.length > 5;
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = findOn ? query.trim().toLowerCase() : '';
+    const active = findOn ? filter : 'all';
     const withInfo = events.map((e) => ({ e, info: countdownInfo(e.dateISO, e.type, e.repeat, today) }));
     const kept = withInfo.filter(({ e, info }) => {
       if (q && !e.title.toLowerCase().includes(q) && !e.category.toLowerCase().includes(q)) return false;
-      if (filter === 'upcoming') return e.type === 'countdown' && info.daysDiff >= 0;
-      if (filter === 'counting') return e.type === 'countup';
-      if (filter === 'repeats') return e.repeat !== 'none';
+      if (active === 'upcoming') return e.type === 'countdown' && info.daysDiff >= 0;
+      if (active === 'counting') return e.type === 'countup';
+      if (active === 'repeats') return e.repeat !== 'none';
       return true;
     });
     // Upcoming first (by target), then past, each by date.
@@ -197,7 +257,14 @@ export default function Home({
       return a.info.targetISO < b.info.targetISO ? -1 : 1;
     });
     return kept;
-  }, [events, filter, query, today]);
+  }, [events, filter, query, today, findOn]);
+
+  const nextUp = useMemo(() => {
+    if (findOn && (filter !== 'all' || query.trim())) return null;
+    return filtered
+      .filter(({ e, info }) => e.type === 'countdown' && info.daysDiff >= 0)
+      .sort((a, b) => a.info.daysDiff - b.info.daysDiff)[0] ?? null;
+  }, [filtered, filter, query, findOn]);
   // App-lock gate: enforced inside Home so the splash/onboarding/auth
   // flow in App.tsx is untouched. Unlocking lasts for this session only.
   if (loaded && settings.appLockEnabled && !unlocked) {
@@ -230,8 +297,10 @@ export default function Home({
   if (showWizard && events.length === 0) {
     return (
       <FirstEventWizard
+        initialPhoto={starterPhoto}
         onFinish={finishWizard}
         onSkip={() => setShowWizard(false)}
+        onBindBack={(fn) => { wizardBackRef.current = fn; }}
       />
     );
   }
@@ -243,7 +312,15 @@ export default function Home({
         <EventEditor
           eventsForDedupe={events}
           initial={view.event}
-          onCancel={() => setView({ kind: 'list' })}
+          startStep={view.step}
+          onBindBack={(fn) => { editorBackRef.current = fn; }}
+          onCancel={() => {
+            if (view.from === 'detail' && view.event) setView({ kind: 'detail', id: view.event.id });
+            else if (view.from === 'contacts') setView({ kind: 'contacts' });
+            else if (view.from === 'calendar') setView({ kind: 'calendar' });
+            else if (view.from === 'social') setView({ kind: 'social' });
+            else setView({ kind: 'list' });
+          }}
           onSave={async (saved) => {
             // Not just !view.event: contact/calendar imports open the
             // editor with a prefilled draft that is not in the list yet.
@@ -287,7 +364,11 @@ export default function Home({
           giftPlan={giftPlans.find((p) => p.eventId === event.id) ?? emptyGiftPlan(event.id)}
           onSaveGiftPlan={persistGiftPlan}
           onBack={() => setView({ kind: 'list' })}
-          onEdit={() => setView({ kind: 'editor', event })}
+          onEdit={() => setView({ kind: 'editor', event, step: 1, from: 'detail' })}
+          onCustomize={() => setView({ kind: 'editor', event, step: 3, from: 'detail' })}
+          onChangePhoto={async (uri) => {
+            await persistEvents(events.map((e) => (e.id === event.id ? { ...e, photoUri: uri } : e)));
+          }}
           onDelete={async () => {
             const list = events.filter((e) => e.id !== event.id);
             await persistEvents(list);
@@ -329,6 +410,7 @@ export default function Home({
           onPick={(c: ImportedContact) => {
             setView({
               kind: 'editor',
+              from: 'contacts',
               event: {
                 id: newId(), title: c.name, dateISO: c.birthdayISO ?? today, type: 'countdown',
                 repeat: 'yearly', category: 'Birthday', color: '#F7A5A5', icon: 'gift', sticker: '🎂',
@@ -351,6 +433,7 @@ export default function Home({
           onPick={(e: ImportedCalendarEvent) => {
             setView({
               kind: 'editor',
+              from: 'calendar',
               event: {
                 id: newId(), title: e.title, dateISO: e.dateISO, type: 'countdown',
                 repeat: 'none', category: 'Custom', color: '#8E99F3', icon: 'calendar', sticker: '',
@@ -371,25 +454,19 @@ export default function Home({
     return (
       <SafeAreaView style={styles.wrap} edges={['top', 'bottom']}>
         <SocialTab
-          comments={comments}
           onBack={() => { setView({ kind: 'list' }); setTab('settings'); }}
-          onJoin={(recId) => {
+          onUse={(recId) => {
             const rec = RECOMMENDED_EVENTS.find((r) => r.id === recId);
             if (!rec) return;
             setView({
               kind: 'editor',
+              from: 'social',
               event: {
                 id: newId(), title: rec.title, dateISO: today, type: 'countdown', repeat: 'none',
                 category: rec.category, color: '#8E99F3', icon: 'star', sticker: '', font: 'grotesk',
                 effect: 'none', photoUri: null, createdAt: today,
               },
             });
-          }}
-          onAddComment={async (recId, text) => {
-            const c: LocalComment = { id: newId(), recommendedId: recId, text, createdAt: today };
-            const list = [...comments, c];
-            setComments(list);
-            await saveComments(list);
           }}
         />
       </SafeAreaView>
@@ -427,91 +504,65 @@ export default function Home({
   return (
     <SafeAreaView style={styles.wrap} edges={['top', 'bottom']}>
       {tab === 'home' ? (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
-          <Text style={styles.greeting}>A DAY AWAY</Text>
-          {/* Dashboard top shows a Profile icon (not the settings gear):
-              tapping it opens the Profile tab. Settings still has its
-              own footer tab, so nothing is lost. */}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 120 }}>
           <View style={styles.headerRow}>
-            <Text style={[styles.heading, { flex: 1 }]}>Your countdowns</Text>
-            <Pressable style={styles.gearBtn} onPress={() => { setTab('profile'); setView({ kind: 'list' }); }} hitSlop={8}>
-              <Ionicons name="person-circle-outline" size={28} color={colors.onSurface} />
+            <Text style={styles.dateLine}>{formatHumanDate(today).toUpperCase()}</Text>
+            <Pressable style={styles.monogram} onPress={() => { setTab('profile'); setView({ kind: 'list' }); }} hitSlop={8}>
+              <Text style={styles.monogramText}>{(settings.displayName.trim() || 'G').slice(0, 1).toUpperCase()}</Text>
             </Pressable>
           </View>
-          <Text style={styles.meta}>{events.length} event{events.length === 1 ? '' : 's'} · offline, on this device</Text>
-
-          {filter === 'all' && !query.trim() ? (() => {
-            // Next-up hero (the pattern every top app leads with): the
-            // nearest upcoming event, large, at the top — not buried in
-            // a bucket grid. Tapping it opens the same detail screen.
-            const nextUp = filtered
-              .filter(({ e, info }) => e.type === 'countdown' && info.daysDiff >= 0)
-              .sort((a, b) => a.info.daysDiff - b.info.daysDiff)[0];
-            if (!nextUp) return null;
-            return (
-              <Pressable
-                style={[styles.heroCard, effectBorder(nextUp.e.effect, nextUp.e.color)]}
-                onPress={() => setView({ kind: 'detail', id: nextUp.e.id })}
-              >
-                {nextUp.e.photoUri ? (
-                  <>
-                    <Image source={{ uri: nextUp.e.photoUri }} style={styles.cardPhoto} />
-                    <View style={styles.cardScrim} />
-                  </>
-                ) : null}
-                <View style={styles.heroContent}>
-                  <Text style={styles.heroKicker}>NEXT UP</Text>
-                  <Text style={[styles.heroBig, { fontFamily: FONT_FAMILY[nextUp.e.font] ?? fonts.grotesk }]}>{nextUp.info.label}</Text>
-                  <Text style={styles.heroTitle} numberOfLines={2}>{nextUp.e.title}</Text>
-                  <Text style={styles.heroMeta}>{nextUp.info.targetISO} · {nextUp.e.category}</Text>
-                </View>
-              </Pressable>
-            );
-          })() : null}
-          {/* The big header "+ Add event" button is gone — the floating
-              button below is now the single way to add, so the list
-              itself gets the freed vertical space. */}
-
-          <TextInput
-            style={styles.search}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search events or categories…"
-            placeholderTextColor={colors.onSurfaceVariant}
-          />
-          <View style={styles.row}>
-            {(['all', 'upcoming', 'counting', 'repeats'] as Filter[]).map((f) => (
-              <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipOn]}>
-                <Text style={[styles.chipText, filter === f && styles.chipTextOn]}>
-                  {f === 'all' ? 'All' : f === 'upcoming' ? 'Upcoming' : f === 'counting' ? 'Counting up' : 'Repeats'}
-                </Text>
-              </Pressable>
-            ))}
+          <View style={styles.titleRow}>
+            <Text style={styles.heading}>A Day Away</Text>
+            <Pressable onPress={() => setView({ kind: 'editor', event: null, from: 'list' })} hitSlop={8}>
+              <Text style={styles.addText}>Add</Text>
+            </Pressable>
           </View>
+
+          {findOn ? (
+            <>
+              <TextInput
+                style={styles.search}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search events or categories…"
+                placeholderTextColor={colors.onSurfaceVariant}
+              />
+              <View style={styles.row}>
+                {(['all', 'upcoming', 'counting', 'repeats'] as Filter[]).map((f) => (
+                  <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipOn]}>
+                    <Text style={[styles.chipText, filter === f && styles.chipTextOn]}>
+                      {f === 'all' ? 'All' : f === 'upcoming' ? 'Upcoming' : f === 'counting' ? 'Counting up' : 'Repeats'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
 
           {events.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No events yet.</Text>
+              <Text style={styles.emptyTitle}>Nothing yet.</Text>
+              <Text style={styles.emptyText}>A birthday, a trip, a day you are counting toward.</Text>
               <Pressable style={styles.primaryBtn} onPress={() => setShowWizard(true)}>
-                <Text style={styles.primaryBtnText}>Set up my first event (5 steps)</Text>
+                <Text style={styles.primaryBtnText}>BEGIN</Text>
               </Pressable>
-              <Pressable
-                style={styles.secondaryBtn}
-                onPress={async () => {
+              <View style={styles.emptyLinks}>
+                <Pressable onPress={async () => {
                   const added = exampleEvents(today);
                   await persistEvents(added);
-                  // One summary notification for the batch, not one per event.
                   await sendImmediateNotification('Example events added', `${added.length} example events are now counting.`);
-                }}
-              >
-                <Text style={styles.secondaryBtnText}>Add example events</Text>
-              </Pressable>
-              <Pressable style={styles.secondaryBtn} onPress={() => setView({ kind: 'contacts' })}>
-                <Text style={styles.secondaryBtnText}>Import from contacts</Text>
-              </Pressable>
-              <Pressable style={styles.secondaryBtn} onPress={() => setView({ kind: 'calendar' })}>
-                <Text style={styles.secondaryBtnText}>Import from device calendar</Text>
-              </Pressable>
+                }}>
+                  <Text style={styles.emptyLink}>Examples</Text>
+                </Pressable>
+                <Text style={styles.emptyDot}>·</Text>
+                <Pressable onPress={() => setView({ kind: 'contacts' })}>
+                  <Text style={styles.emptyLink}>Contacts</Text>
+                </Pressable>
+                <Text style={styles.emptyDot}>·</Text>
+                <Pressable onPress={() => setView({ kind: 'calendar' })}>
+                  <Text style={styles.emptyLink}>Calendar</Text>
+                </Pressable>
+              </View>
             </View>
           ) : filtered.length === 0 ? (
             <Text style={styles.hint}>Nothing matches this filter / search.</Text>
@@ -526,12 +577,12 @@ export default function Home({
               ] as const).map((bucket) => bucket.items.length === 0 ? null : (
                 <View key={bucket.title}>
                   <Text style={styles.bucketTitle}>{bucket.title}</Text>
-                  <View style={styles.grid}>{bucket.items.map(renderCard)}</View>
+                  <View style={styles.cardStack}>{bucket.items.map(renderEvent)}</View>
                 </View>
               ))}
             </>
           ) : (
-            <View style={styles.grid}>{filtered.map(renderCard)}</View>
+            <View style={styles.cardStack}>{filtered.map(renderEvent)}</View>
           )}
 
         </ScrollView>
@@ -564,30 +615,17 @@ export default function Home({
 
       <View style={styles.tabBar}>
         {([
-          { key: 'home', label: 'Home', icon: 'home' },
-          { key: 'profile', label: 'Profile', icon: 'person' },
-          { key: 'settings', label: 'Settings', icon: 'settings-outline' },
+          { key: 'home', label: 'Home' },
+          { key: 'profile', label: 'Profile' },
+          { key: 'settings', label: 'Settings' },
         ] as const).map((t) => (
           <Pressable key={t.key} onPress={() => { setTab(t.key); setView({ kind: 'list' }); }} style={styles.tabBtn}>
-            <Ionicons name={t.icon as never} size={22} color={tab === t.key ? colors.primary : colors.onSurfaceVariant} />
             <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelOn]}>{t.label}</Text>
+            <View style={[styles.tabMark, tab === t.key && styles.tabMarkOn]} />
           </Pressable>
         ))}
       </View>
 
-      {/* True floating Add button: rendered AFTER the tab bar so it
-          paints on top of it, absolutely positioned above it. Bottom
-          = bottom inset + tab-bar height (~52) + 16 gap, so it can
-          never be painted under the tab bar (the old bottom: 76 bug)
-          and the list scrolls underneath it. */}
-      {tab === 'home' && view.kind === 'list' ? (
-        <Pressable
-          style={[styles.fab, { bottom: insets.bottom + 68, right: 16 }]}
-          onPress={() => setView({ kind: 'editor', event: null })}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </Pressable>
-      ) : null}
     </SafeAreaView>
   );
 }
@@ -595,16 +633,22 @@ export default function Home({
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: colors.background },
   loading: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface, padding: 16 },
-  greeting: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.primary, letterSpacing: 1.4 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  gearBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  heading: { fontFamily: fonts.grotesk, fontSize: 28, color: colors.onSurface, marginTop: 4 },
-  heroCard: { backgroundColor: colors.surface, borderRadius: 24, marginTop: 12, overflow: 'hidden' },
-  heroContent: { padding: 18 },
-  heroKicker: { fontFamily: fonts.jakartaBold, fontSize: 11, color: colors.primary, letterSpacing: 1.4 },
-  heroBig: { fontSize: 44, color: colors.onSurface, marginTop: 6 },
-  heroTitle: { fontFamily: fonts.jakartaBold, fontSize: 18, color: colors.onSurface, marginTop: 4, lineHeight: 23 },
-  heroMeta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 6 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dateLine: { ...labelStyle, fontSize: 11, letterSpacing: 1.8, color: colors.onSurfaceVariant },
+  monogram: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  monogramText: { fontFamily: fonts.grotesk, fontSize: 14, color: colors.onSurface },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  heading: { fontFamily: fonts.grotesk, fontSize: 34, letterSpacing: -0.6, color: colors.onSurface, marginTop: 10 },
+  addText: { ...labelStyle, fontSize: 12, letterSpacing: 1.8, color: colors.primary, marginBottom: 6 },
+  cardStack: { gap: 8, marginTop: 18 },
+  eventCard: {
+    backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
+  },
+  eventCardBody: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  eventCardTitle: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface },
+  eventCardBig: { fontFamily: fonts.grotesk, fontSize: 22, lineHeight: 26, letterSpacing: -0.4, textAlign: 'right' },
+  nextMark: { ...labelStyle, fontSize: 10, letterSpacing: 1.6, color: colors.primary, marginBottom: 2 },
   meta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4 },
   search: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 15, marginTop: 14 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
@@ -612,35 +656,24 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 13 },
   chipTextOn: { color: colors.background, fontFamily: fonts.jakartaBold },
-  empty: { backgroundColor: colors.surface, borderRadius: 20, padding: 18, marginTop: 16 },
-  emptyText: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurface, lineHeight: 21 },
+  empty: { marginTop: 48 },
+  emptyTitle: { fontFamily: fonts.grotesk, fontSize: 32, color: colors.onSurface },
+  emptyText: { fontFamily: fonts.jakartaMedium, fontSize: 15, color: colors.onSurfaceVariant, lineHeight: 22, marginTop: 8 },
+  emptyLinks: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 18 },
+  emptyLink: { ...labelStyle, fontSize: 11, letterSpacing: 1.4, color: colors.accent },
+  emptyDot: { color: colors.onSurfaceVariant, fontSize: 14 },
   hint: { fontFamily: fonts.jakartaMedium, fontSize: 14, color: colors.onSurfaceVariant, marginTop: 16, lineHeight: 20 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
-  card: { width: '48%', flexGrow: 1, backgroundColor: colors.surface, borderRadius: 20, marginTop: 12, overflow: 'hidden' },
-  cardPhoto: { ...StyleSheet.absoluteFill },
-  cardScrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)' },
-  cardContent: { padding: 12 },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  sticker: { fontSize: 16 },
-  cardCategory: { fontFamily: fonts.jakartaBold, fontSize: 10, color: colors.onSurfaceVariant, letterSpacing: 1, flexShrink: 1 },
-  cardBig: { fontSize: 28, color: colors.onSurface, marginTop: 6 },
-  cardTitle: { fontFamily: fonts.jakartaBold, fontSize: 14, color: colors.onSurface, marginTop: 2, lineHeight: 19 },
-  cardMeta: { fontFamily: fonts.jakartaMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 4 },
+  rowCardCopy: { flex: 1 },
+  cardThumb: { width: 52, height: 52, borderRadius: 8, backgroundColor: colors.surfaceAlt },
+  cardMeta: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 3 },
   cardBanner: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.accent, marginTop: 4 },
-  bucketTitle: { fontFamily: fonts.grotesk, fontSize: 18, color: colors.onSurface, marginTop: 14 },
-  primaryBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
-  secondaryBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 12 },
-  secondaryBtnText: { color: colors.onSurface, fontFamily: fonts.jakartaBold, fontSize: 15 },
-  primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 15 },
-  tabBar: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, paddingVertical: 8 },
-  tabBtn: { flex: 1, alignItems: 'center', gap: 2 },
-  tabLabel: { fontFamily: fonts.jakartaMedium, fontSize: 11, color: colors.onSurfaceVariant },
-  tabLabelOn: { color: colors.primary, fontFamily: fonts.jakartaBold },
-  fab: {
-    position: 'absolute', zIndex: 10,
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
-    shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 24, shadowOffset: { width: 0, height: 8 }, elevation: 6,
-  },
-  fabText: { fontFamily: fonts.grotesk, fontSize: 30, color: colors.background, lineHeight: 32 },
+  bucketTitle: { ...labelStyle, fontSize: 11, letterSpacing: 1.8, color: colors.onSurfaceVariant, marginTop: 28 },
+  primaryBtn: { backgroundColor: colors.primary, borderRadius: 26, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 22, paddingHorizontal: 28, alignSelf: 'flex-start' },
+  primaryBtnText: { ...labelStyle, fontSize: 12, letterSpacing: 2.2, color: colors.onPrimary },
+  tabBar: { zIndex: 2, flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.background, paddingTop: 10, paddingBottom: 6 },
+  tabBtn: { flex: 1, alignItems: 'center', gap: 6 },
+  tabLabel: { ...labelStyle, fontSize: 11, letterSpacing: 1.2, color: colors.onSurfaceVariant },
+  tabLabelOn: { color: colors.onSurface },
+  tabMark: { width: 16, height: 1, backgroundColor: 'transparent' },
+  tabMarkOn: { backgroundColor: colors.accent },
 });

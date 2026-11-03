@@ -78,9 +78,9 @@ export async function scheduleReminders(
     if (scheduled === 0) {
       return { scheduled: 0, note: 'No future reminder dates — the event date has already passed.' };
     }
-    return { scheduled, note: `Scheduled ${scheduled} reminder(s) for ${target} (D-7 / D-3 / D-1 / day-of, 09:00). In Expo Go these may not fire — a dev build is needed for reliable delivery.` };
+    return { scheduled, note: `Reminders set for ${target}: a week before, 3 days before, the day before, and on the day.` };
   } catch {
-    return { scheduled: 0, note: 'Notifications are unavailable in this build (Expo Go). Use a dev build for scheduled reminders.' };
+    return { scheduled: 0, note: 'Reminders could not be scheduled on this device.' };
   }
 }
 

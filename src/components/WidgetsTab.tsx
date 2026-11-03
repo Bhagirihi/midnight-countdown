@@ -7,7 +7,7 @@
 // pin an event, and preview the snapshot those widgets read after a
 // dev build (prebuild + rebuild). The two year variants need no
 // pinned event: their numbers come from today's date.
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { colors, fonts } from '../lib/theme';
 import type { CountdownEvent, Settings, WidgetSnapshot } from '../lib/events';
 import { WIDGET_VARIANTS, type WidgetVariant } from '../lib/widgets';
@@ -25,24 +25,19 @@ export default function WidgetsTab({
   return (
     <ScrollView style={styles.wrap} contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
       {onBack ? (
-        <Pressable onPress={onBack}><Text style={styles.back}>← Back to Profile</Text></Pressable>
+        <Pressable onPress={onBack}><Text style={styles.back}>← Back</Text></Pressable>
       ) : null}
       <Text style={styles.heading}>Widgets</Text>
-      <Text style={styles.banner}>
-        Not a working widget in Expo Go — needs a dev build. After one,
-        long-press your home screen → Widgets → A Day Away.
-      </Text>
-      <Text style={styles.banner2}>
-        Lock screen: iPhone — real widget. Stock Android can&apos;t host
-        them; Samsung: Good Lock → LockStar.
+      <Text style={styles.hint}>
+        Long-press your home screen, then Widgets, then A Day Away.
+        On iPhone, Year left can also sit on the Lock Screen.
       </Text>
 
-      <Text style={styles.sub}>Choose a widget size</Text>
+      <Text style={styles.sub}>Choose a size</Text>
       {WIDGET_VARIANTS.map((v) => (
         <Pressable key={v.id} onPress={() => onVariant(v.id)} style={[styles.row, settings.widgetVariant === v.id && styles.rowOn]}>
           <Text style={styles.rowText}>{settings.widgetVariant === v.id ? '✓ ' : ''}{v.title}</Text>
           <Text style={styles.hint}>{v.shows}</Text>
-          <Text style={styles.hint}>{v.androidHowTo}</Text>
         </Pressable>
       ))}
 
@@ -60,20 +55,9 @@ export default function WidgetsTab({
         <Pressable onPress={() => onPin(null)}><Text style={styles.clear}>Clear pinned event</Text></Pressable>
       ) : null}
 
-      <Text style={styles.sub}>Widget snapshot (what the dev-build widget would read)</Text>
-      {snapshot ? (
-        <View style={styles.card}>
-          <Text style={styles.body}>Updated: {snapshot.updatedAt}</Text>
-          <Text style={styles.body}>Pinned: {snapshot.pinned ? `${snapshot.pinned.title} — ${snapshot.pinned.label}` : 'none'}</Text>
-          {snapshot.pinned?.milestoneLabel ? <Text style={styles.body}>Next milestone: {snapshot.pinned.milestoneLabel}</Text> : null}
-          {snapshot.pinned?.storyDateISO ? <Text style={styles.body}>Next story date: {snapshot.pinned.storyDateISO}</Text> : null}
-          {snapshot.upcoming.map((u) => (
-            <Text key={u.id} style={styles.body}>• {u.title} — {u.label} ({u.dateISO})</Text>
-          ))}
-        </View>
-      ) : (
-        <Text style={styles.hint}>No snapshot yet — it is written when the home list loads.</Text>
-      )}
+      {snapshot?.pinned ? (
+        <Text style={styles.hint}>Home screen shows {snapshot.pinned.title} · {snapshot.pinned.label}</Text>
+      ) : null}
     </ScrollView>
   );
 }

@@ -1,36 +1,42 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, fonts, labelStyle } from '../lib/theme';
+import { colors, fonts } from '../lib/theme';
+import BrandMark from './BrandMark';
 
-// Branded splash shown on every cold start. The parent (App.tsx) decides
-// when to hide it: fonts/stores ready AND >= 2s elapsed, 5s fallback.
-// It lives only in the root mount, so resuming from background never
-// re-shows it.
+// Branded splash on every cold start. It fills the screen on its own so a
+// short parent cannot collapse it, and App.tsx keeps it up for 2 seconds.
 export default function StartupSplash() {
   return (
-    <SafeAreaView style={styles.root}>
+    <View style={styles.root}>
       <View style={styles.center}>
-        <Image source={require('../../assets/icon.png')} style={styles.icon} />
-        <Text style={styles.name}>A DAY{'\n'}AWAY</Text>
-        <Text style={styles.mono}>D-7 / D-3 / D-1</Text>
+        <Image source={require('../../assets/icon.png')} style={styles.icon} accessibilityLabel="A Day Away" />
+        <View style={styles.mark}>
+          <BrandMark />
+        </View>
       </View>
       <Text style={styles.foot}>EVERY DAY, COUNTED</Text>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20 },
-  icon: { width: 120, height: 120, borderRadius: 28 },
-  name: {
-    fontFamily: fonts.grotesk,
-    fontSize: 30,
-    lineHeight: 30,
-    letterSpacing: -0.75,
-    color: colors.onSurface,
-    textAlign: 'center',
+  root: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: colors.background,
+    zIndex: 20,
   },
-  mono: { fontFamily: fonts.mono, fontSize: 12, color: colors.primary },
-  foot: { ...labelStyle, fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', paddingBottom: 32 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 168, height: 168, borderRadius: 40 },
+  mark: { marginTop: 28 },
+  foot: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    letterSpacing: 2.4,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    paddingBottom: 36,
+  },
 });

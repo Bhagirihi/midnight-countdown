@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +11,7 @@ import StartupSplash from './src/components/StartupSplash';
 import Onboarding from './src/components/Onboarding';
 import AuthScreen from './src/components/AuthScreen';
 import Home from './src/components/Home';
+import { colors } from './src/lib/theme';
 import {
   loadProgress,
   markOnboardingSeen,
@@ -36,51 +37,52 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('splash');
   const [authChoice, setAuthChoice] = useState<AuthChoice>(null);
   const [localEmail, setLocalEmail] = useState<string | null>(null);
-  const startedAt = useRef(Date.now());
-  const splashDone = useRef(false);
+  const [starterPhoto, setStarterPhoto] = useState<string | null>(null);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [nextScreen, setNextScreen] = useState<Screen | null>(null);
 
-  // Cold-start routing + splash gating, run once on mount.
-  // Splash hides only when: fonts settled AND stored progress loaded AND
-  // >= 2s elapsed. A 5s fallback guarantees it can never hang the app.
-  // This state lives in the root mount only, so resuming from background
-  // never re-shows the splash.
+  // Drop the native splash as soon as this tree paints. Keeping it up for
+  // the whole delay covers the branded splash, so the logo never appears.
   useEffect(() => {
-    let cancelled = false;
-    const fallback = setTimeout(() => finish('onboarding'), 5000);
-    async function finish(fallbackScreen: Screen) {
-      if (splashDone.current || cancelled) return;
-      splashDone.current = true;
-      clearTimeout(fallback);
-      try {
-        await SplashScreen.hideAsync();
-      } catch {
-        // Native splash already hidden — in-app splash still unmounts below.
-      }
-      setScreen((current) => (current === 'splash' ? fallbackScreen : current));
-    }
-    async function boot() {
-      const progress = await loadProgress();
-      if (cancelled) return;
-      setAuthChoice(progress.authChoice);
-      setLocalEmail(progress.localEmail);
-      const next: Screen = !progress.onboardingSeen
-        ? 'onboarding'
-        : !progress.authChoice
-          ? 'auth'
-          : 'home';
-      const wait = Math.max(0, 2000 - (Date.now() - startedAt.current));
-      setTimeout(() => finish(next), wait);
-    }
-    // Wait for fonts to settle (success or error) before routing, so the
-    // splash never hands off to a screen rendering in fallback fonts.
-    if (fontsLoaded || fontsError) {
-      boot().catch(() => finish('onboarding'));
-    }
+    SplashScreen.hideAsync().catch(() => {});
+    const timer = setTimeout(() => setMinTimeElapsed(true), 2000);
+    const fallback = setTimeout(() => {
+      setNextScreen((current) => current ?? 'onboarding');
+      setMinTimeElapsed(true);
+    }, 8000);
     return () => {
-      cancelled = true;
+      clearTimeout(timer);
       clearTimeout(fallback);
     };
+  }, []);
+
+  // Cold-start routing. The branded splash stays until both this and the
+  // 2s timer above have finished. Root-mount only, so a resume does not
+  // show the splash again.
+  useEffect(() => {
+    if (!fontsLoaded && !fontsError) return;
+    let cancelled = false;
+    loadProgress()
+      .then((progress) => {
+        if (cancelled) return;
+        setAuthChoice(progress.authChoice);
+        setLocalEmail(progress.localEmail);
+        setNextScreen(
+          !progress.onboardingSeen ? 'onboarding' : !progress.authChoice ? 'auth' : 'home',
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setNextScreen('onboarding');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [fontsLoaded, fontsError]);
+
+  useEffect(() => {
+    if (!minTimeElapsed || !nextScreen) return;
+    setScreen((current) => (current === 'splash' ? nextScreen : current));
+  }, [minTimeElapsed, nextScreen]);
 
   const goHomeAsGuest = useCallback(async () => {
     await setGuest();
@@ -96,7 +98,8 @@ export default function App() {
     setScreen('home');
   }, []);
 
-  const finishOnboarding = useCallback(async () => {
+  const finishOnboarding = useCallback(async (photoUri: string | null) => {
+    setStarterPhoto(photoUri);
     await markOnboardingSeen();
     setScreen(authChoice ? 'home' : 'auth');
   }, [authChoice]);
@@ -121,8 +124,9 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="light" />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
       {screen === 'splash' ? (
         <StartupSplash />
       ) : screen === 'onboarding' ? (
@@ -132,13 +136,13 @@ export default function App() {
       ) : (
         <Home
           authLabel={authChoice === 'local-email' && localEmail ? localEmail.toUpperCase() : 'GUEST'}
+          starterPhoto={starterPhoto}
           onReplayOnboarding={doReplayOnboarding}
           onSignOut={doSignOut}
           onResetFromZero={doResetFromZero}
         />
       )}
-      {/* Keep a mounted View so the tree never renders empty during transitions. */}
-      <View style={{ height: 0 }} />
+      </View>
     </SafeAreaProvider>
   );
 }

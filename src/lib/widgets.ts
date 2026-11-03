@@ -68,7 +68,7 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     widgetName: 'MidnightSmall',
     title: 'Small — 1×1',
     cells: '1×1',
-    shows: 'Big D-number + event title for the pinned event.',
+    shows: 'D-number and title.',
     androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Small.',
   },
   {
@@ -76,7 +76,7 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     widgetName: 'MidnightMedium',
     title: 'Medium — 2×1',
     cells: '2×1',
-    shows: 'D-number + title + next date for the pinned event.',
+    shows: 'D-number, title, and date.',
     androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Medium.',
   },
   {
@@ -84,7 +84,7 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     widgetName: 'MidnightLarge',
     title: 'Large — 2×2',
     cells: '2×2',
-    shows: 'Pinned event (D-number + title + date), its next milestone and next story date when they exist, plus the next upcoming event.',
+    shows: 'Pinned countdown, next milestone, and the next event.',
     androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Large.',
   },
   {
@@ -92,7 +92,7 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     widgetName: 'MidnightNextUp',
     title: 'Next up list — 4×2',
     cells: '4×2',
-    shows: 'The next 3 upcoming events, each with its D-number.',
+    shows: 'Your next three events.',
     androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Next up.',
   },
   {
@@ -100,7 +100,7 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     widgetName: 'MidnightYearDots',
     title: 'Year dots — 2×2',
     cells: '2×2',
-    shows: 'One dot per day of the year: dim dots are days already passed, bright dots are the days still left, plus the year and "N days left" underneath — the dot widget from the reference screenshot.',
+    shows: 'Days left in the year, one dot per day.',
     androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Year dots.',
   },
   {
@@ -108,8 +108,8 @@ export const WIDGET_VARIANTS: WidgetVariantMeta[] = [
     widgetName: 'MidnightYearLock',
     title: 'Year left (lock style) — 2×1',
     cells: '2×1',
-    shows: '"N days left · P% completed · YYYY" — the lock-screen text from the reference screenshot. On iPhone this is a real Lock Screen widget (accessory size); on Android it is a compact home widget, and on Samsung phones it can be placed on the lock screen via Good Lock → LockStar (stock Android itself does not allow lock-screen widgets).',
-    androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Year left. Samsung: Good Lock → LockStar → add it to the lock screen.',
+    shows: 'Days left in the year, with percent done.',
+    androidHowTo: 'Long-press your home screen → Widgets → A Day Away → Year left.',
   },
 ];
 

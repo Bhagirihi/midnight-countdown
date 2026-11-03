@@ -18,12 +18,13 @@ export interface WizardDraft {
   preset: WizardPreset;
   title: string;
   dateISO: string;
+  photoUri: string | null;
   widgetVariant: 'small' | 'medium' | 'large' | 'list' | 'yearDots' | 'yearLock';
 }
 
 export function wizardDraftToEventInput(draft: WizardDraft, today: string): {
   title: string; dateISO: string; type: 'countdown'; repeat: Repeat; category: string;
-  color: string; icon: string; sticker: string; createdAt: string;
+  color: string; icon: string; sticker: string; photoUri: string | null; createdAt: string;
 } {
   return {
     title: draft.title.trim(),
@@ -34,6 +35,7 @@ export function wizardDraftToEventInput(draft: WizardDraft, today: string): {
     color: draft.preset.color,
     icon: draft.preset.icon,
     sticker: draft.preset.sticker,
+    photoUri: draft.photoUri,
     createdAt: today || todayISO(),
   };
 }

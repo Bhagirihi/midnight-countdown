@@ -1,27 +1,28 @@
 // First-event wizard — shown after auth ONLY when the user has 0
 // events, and re-offered from the Home empty state. Skippable at every
-// step, and Skip creates nothing. The draft lives only in this
-// component's state; Home creates the event exactly once, in its
-// guarded Finish handler, so back/forward navigation can never
-// duplicate it. Step 3 is the only step that fixes a date, and Step 5
-// is the only step with a Finish button.
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+// step, and Skip creates nothing. Four steps: preset, name, date, photo.
+// The photo is optional. Notifications and widgets are offered later,
+// once an event exists. Home creates the event exactly once, in its
+// guarded Finish handler.
+import { useEffect, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts } from '../lib/theme';
-import { daysInMonth, parseDate, todayISO } from '../lib/dates';
+import { formatHumanDate, parseDate, todayISO } from '../lib/dates';
 import {
-  WIZARD_PRESETS, wizardDateFromDate, wizardDateFromDays, wizardPreset,
+  WIZARD_PRESETS, wizardDateFromDate, wizardDateFromDays,
   type WizardDraft, type WizardPreset,
 } from '../lib/wizard';
-import { WIDGET_VARIANTS, type WidgetVariant } from '../lib/widgets';
-import { requestNotificationPermission } from '../lib/permissions';
+import { pickSinglePhoto } from '../lib/photos';
+import DateCalendar from './DateCalendar';
 
 export default function FirstEventWizard({
-  onFinish, onSkip,
+  initialPhoto = null, onFinish, onSkip, onBindBack,
 }: {
+  initialPhoto?: string | null;
   onFinish: (draft: WizardDraft) => void;
   onSkip: () => void;
+  onBindBack?: (fn: (() => boolean) | null) => void;
 }) {
   const today = todayISO();
   const [step, setStep] = useState(1);
@@ -30,10 +31,8 @@ export default function FirstEventWizard({
   const [mode, setMode] = useState<'date' | 'days'>('date');
   const [dateText, setDateText] = useState('');
   const [daysText, setDaysText] = useState('30');
+  const [photoUri, setPhotoUri] = useState<string | null>(initialPhoto);
   const [error, setError] = useState('');
-  const [notifStatus, setNotifStatus] = useState('');
-
-  const [variant, setVariant] = useState<WidgetVariant>('medium');
   // In-app calendar picker for Date mode — pure JS, no native
   // date-picker dependency, so it works in Expo Go too. Opening it
   // jumps to the already-chosen date's month, otherwise this month.
@@ -68,6 +67,14 @@ export default function FirstEventWizard({
     setShowCalendar(false);
   };
 
+  useEffect(() => {
+    onBindBack?.(() => {
+      if (step > 1) { setError(''); setStep(step - 1); return true; }
+      return false;
+    });
+    return () => onBindBack?.(null);
+  }, [onBindBack, step]);
+
   const pickPreset = (p: WizardPreset) => {
     setPreset(p);
     setTitle(p.prefillTitle);
@@ -81,26 +88,33 @@ export default function FirstEventWizard({
   };
 
   const nextFromStep3 = () => {
-    if (!computed.dateISO) { setError(computed.error ?? 'Check the date.'); return; }
+    if (!title.trim() || !computed.dateISO) {
+      setError(computed.error ?? 'Pick a date before continuing. Nothing was created.');
+      return;
+    }
     setError('');
     setStep(4);
   };
 
   const finish = () => {
     if (!title.trim() || !computed.dateISO) {
-      // Defensive: Finish is only reachable after Steps 2–3 passed, so
-      // this should never fire. If it does, do NOT create a partial event.
-      setError('Go back and finish steps 2 and 3 first — nothing was created.');
+      setError(computed.error ?? 'Pick a date before creating the event. Nothing was created.');
       return;
     }
-    onFinish({ preset, title: title.trim(), dateISO: computed.dateISO, widgetVariant: variant });
+    onFinish({
+      preset,
+      title: title.trim(),
+      dateISO: computed.dateISO,
+      photoUri,
+      widgetVariant: 'medium',
+    });
   };
 
   return (
     <SafeAreaView style={styles.wrap} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
         <View style={styles.topRow}>
-          <Text style={styles.kicker}>SET UP YOUR FIRST EVENT · STEP {step} OF 5</Text>
+          <Text style={styles.kicker}>SET UP YOUR FIRST EVENT · STEP {step} OF 4</Text>
           <Pressable onPress={onSkip} hitSlop={12}>
             <Text style={styles.skip}>SKIP</Text>
           </Pressable>
@@ -166,52 +180,25 @@ export default function FirstEventWizard({
               <>
                 <Pressable style={styles.input} onPress={openCalendar}>
                   <Text style={[styles.inputText, !dateText && styles.inputPlaceholder]}>
-                    {dateText || 'Pick a date — tap to open calendar'}
+                    {dateText ? formatHumanDate(dateText, today) : 'Pick a date — tap to open calendar'}
                   </Text>
                 </Pressable>
                 {showCalendar ? (
-                  <View style={styles.calCard}>
-                    <View style={styles.calHeader}>
-                      <Pressable onPress={() => shiftCalendarMonth(-1)} hitSlop={10}>
-                        <Text style={styles.calNav}>‹</Text>
-                      </Pressable>
-                      <Text style={styles.calTitle}>
-                        {new Date(calYear, calMonth - 1, 1).toLocaleString('en', { month: 'long' })} {calYear}
-                      </Text>
-                      <Pressable onPress={() => shiftCalendarMonth(1)} hitSlop={10}>
-                        <Text style={styles.calNav}>›</Text>
-                      </Pressable>
-                    </View>
-                    <View style={styles.calGrid}>
-                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                        <Text key={d} style={styles.calWeekday}>{d}</Text>
-                      ))}
-                      {Array.from({ length: new Date(calYear, calMonth - 1, 1).getDay() }).map((_, i) => (
-                        <View key={`blank-${i}`} style={styles.calCell} />
-                      ))}
-                      {Array.from({ length: daysInMonth(calYear, calMonth) }).map((_, i) => {
-                        const day = i + 1;
-                        const iso = `${calYear}-${String(calMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        const selected = dateText === iso;
-                        const isToday = today === iso;
-                        return (
-                          <Pressable
-                            key={day}
-                            style={[styles.calCell, selected && styles.calCellOn, isToday && !selected && styles.calCellToday]}
-                            onPress={() => pickCalendarDay(day)}
-                          >
-                            <Text style={[styles.calDay, selected && styles.calDayOn]}>{day}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                    <Pressable style={styles.secondaryBtn} onPress={() => setShowCalendar(false)}>
-                      <Text style={styles.secondaryBtnText}>Close calendar</Text>
-                    </Pressable>
-                  </View>
+                  <DateCalendar
+                    year={calYear}
+                    month={calMonth}
+                    selectedISO={dateText}
+                    today={today}
+                    onPrev={() => shiftCalendarMonth(-1)}
+                    onNext={() => shiftCalendarMonth(1)}
+                    onPick={(iso) => {
+                      const day = Number(iso.slice(8, 10));
+                      pickCalendarDay(day);
+                    }}
+                  />
                 ) : null}
                 {computed.dateISO ? (
-                  <Text style={styles.body}>Selected: {computed.dateISO}.</Text>
+                  <Text style={styles.body}>Selected: {formatHumanDate(computed.dateISO, today)}.</Text>
                 ) : null}
               </>
             ) : (
@@ -240,7 +227,7 @@ export default function FirstEventWizard({
                 </View>
                 <Text style={styles.body}>
                   {computed.dateISO
-                    ? `In ${daysText.trim()} days = ${computed.dateISO}.`
+                    ? `In ${daysText.trim()} days = ${formatHumanDate(computed.dateISO, today)}.`
                     : 'Enter a whole number of days (0 = today).'}
                 </Text>
               </>
@@ -253,44 +240,27 @@ export default function FirstEventWizard({
 
         {step === 4 ? (
           <>
-            <Text style={styles.heading}>Notifications</Text>
-            <Text style={styles.body}>
-              Optional — saying no blocks nothing. Allow it and D-7 / D-3 /
-              D-1 reminders can be scheduled. No location permission is asked.
-            </Text>
+            <Text style={styles.heading}>Add a photo?</Text>
+            <Text style={styles.body}>Optional. It shows on the event and on Home. You can skip this.</Text>
+            {photoUri ? (
+              <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
+            ) : null}
             <Pressable
               style={styles.secondaryBtn}
-              onPress={async () => setNotifStatus(await requestNotificationPermission())}
+              onPress={async () => {
+                const uri = await pickSinglePhoto();
+                if (uri) setPhotoUri(uri);
+              }}
             >
-              <Text style={styles.secondaryBtnText}>Allow notifications</Text>
+              <Text style={styles.secondaryBtnText}>{photoUri ? 'Change photo' : 'Add photo'}</Text>
             </Pressable>
-            {notifStatus ? <Text style={styles.body}>{notifStatus}</Text> : null}
-            <Pressable style={styles.primaryBtn} onPress={() => setStep(5)}>
-              <Text style={styles.primaryBtnText}>Continue</Text>
-            </Pressable>
-          </>
-        ) : null}
-
-        {step === 5 ? (
-          <>
-            <Text style={styles.heading}>Add it to your home screen</Text>
-            <Text style={styles.body}>
-              Pick a widget size for “{title.trim()}”. In Expo Go widgets
-              can&apos;t run — this choice is saved for the dev build.
-            </Text>
-            {WIDGET_VARIANTS.map((v) => (
-              <Pressable key={v.id} style={[styles.row, variant === v.id && styles.rowOn]} onPress={() => setVariant(v.id)}>
-                <Text style={styles.rowText}>{v.title}</Text>
-                <Text style={styles.rowHint}>{v.shows}</Text>
-                <Text style={styles.rowHint}>{v.androidHowTo}</Text>
+            {photoUri ? (
+              <Pressable style={styles.secondaryBtn} onPress={() => setPhotoUri(null)}>
+                <Text style={styles.secondaryBtnText}>Remove</Text>
               </Pressable>
-            ))}
-            <Text style={styles.banner}>
-              Lock screen: iPhone — real widget. Stock Android can&apos;t
-              host them; Samsung: Good Lock → LockStar.
-            </Text>
+            ) : null}
             <Pressable style={styles.primaryBtn} onPress={finish}>
-              <Text style={styles.primaryBtnText}>Create event &amp; go to Home</Text>
+              <Text style={styles.primaryBtnText}>Create event</Text>
             </Pressable>
           </>
         ) : null}
@@ -345,6 +315,7 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 14 },
   chipTextOn: { color: colors.background, fontFamily: fonts.jakartaBold },
+  photo: { width: '100%', height: 180, borderRadius: 16, marginTop: 16, backgroundColor: colors.surface },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 20 },
   primaryBtnText: { color: colors.background, fontFamily: fonts.jakartaBold, fontSize: 15 },
   secondaryBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 12 },

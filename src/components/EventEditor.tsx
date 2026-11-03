@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../lib/theme';
-import { countdownInfo, isValidDateISO, todayISO } from '../lib/dates';
+import { countdownInfo, formatHumanDate, isValidDateISO, parseDate, todayISO } from '../lib/dates';
 import { loadContactsWithBirthday, type ImportedContact } from '../lib/contacts';
 import { findDuplicateEvent } from '../lib/events';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../lib/events';
 import { pickSinglePhoto } from '../lib/photos';
 import { effectBorder } from './EventDetail';
+import DateCalendar from './DateCalendar';
 
 const FONT_OPTIONS: { key: FontChoice; label: string; family: string }[] = [
   { key: 'grotesk', label: 'Grotesk (display)', family: fonts.grotesk },
@@ -25,12 +26,14 @@ const EFFECT_OPTIONS: { key: VisualEffect; label: string }[] = [
 ];
 
 export default function EventEditor({
-  initial, onSave, onCancel, eventsForDedupe,
+  initial, onSave, onCancel, eventsForDedupe, startStep = 1, onBindBack,
 }: {
   initial: CountdownEvent | null;
   onSave: (e: CountdownEvent) => void;
   onCancel: () => void;
   eventsForDedupe?: CountdownEvent[];
+  startStep?: number;
+  onBindBack?: (fn: (() => boolean) | null) => void;
 }) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [dateISO, setDateISO] = useState(initial?.dateISO ?? '');
@@ -55,17 +58,42 @@ export default function EventEditor({
   // notes/colour/icon/sticker/font/effect/photo). Now Step 1 Basics,
   // Step 2 Who & what, Step 3 Look, Step 4 Review & save. All draft
   // state lives in this component, so Back/Next never loses a field.
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(startStep);
+  const today = todayISO();
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calYear, setCalYear] = useState(() => {
+    const parsed = parseDate(initial?.dateISO ?? '');
+    return parsed?.year ?? Number(today.slice(0, 4));
+  });
+  const [calMonth, setCalMonth] = useState(() => {
+    const parsed = parseDate(initial?.dateISO ?? '');
+    return parsed?.month ?? Number(today.slice(5, 7));
+  });
   const stepTitles = ['Basics', 'Who & what', 'Look', 'Review & save'];
   const nextStep = () => {
     if (step === 1) {
       if (!title.trim()) { setError('Give the event a title.'); return; }
-      if (!isValidDateISO(dateISO)) { setError('Date must be a real date as YYYY-MM-DD, e.g. 2026-12-25.'); return; }
+      if (!isValidDateISO(dateISO)) { setError('Pick a date on the calendar.'); return; }
     }
     setError('');
     setStep(step + 1);
   };
-  const backStep = () => { setError(''); if (step > 1) setStep(step - 1); else onCancel(); };
+  const backStep = () => {
+    setError('');
+    if (step > startStep) setStep(step - 1);
+    else onCancel();
+  };
+  useEffect(() => {
+    onBindBack?.(() => {
+      if (step > startStep) {
+        setError('');
+        setStep(step - 1);
+        return true;
+      }
+      return false;
+    });
+    return () => onBindBack?.(null);
+  }, [onBindBack, step, startStep]);
   // Inline contact import: kept inside the editor so opening it never
   // discards a half-filled form (a separate import screen would unmount
   // the editor and lose the draft).
@@ -113,7 +141,7 @@ export default function EventEditor({
 
   const save = () => {
     if (!title.trim()) { setError('Give the event a title.'); return; }
-    if (!isValidDateISO(dateISO)) { setError('Date must be a real date as YYYY-MM-DD, e.g. 2026-12-25.'); return; }
+    if (!isValidDateISO(dateISO)) { setError('Pick a date on the calendar.'); return; }
     setError('');
     onSave({
       id: initial?.id ?? newId(),
@@ -141,8 +169,35 @@ export default function EventEditor({
         <Text style={styles.label}>Title</Text>
         <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="e.g. Trip to the Mountains" placeholderTextColor={colors.onSurfaceVariant} />
 
-        <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
-        <TextInput style={styles.input} value={dateISO} onChangeText={setDateISO} placeholder="2026-12-25" placeholderTextColor={colors.onSurfaceVariant} autoCapitalize="none" />
+        <Text style={styles.label}>Date</Text>
+        <Pressable style={styles.input} onPress={() => {
+          const parsed = parseDate(dateISO);
+          if (parsed) { setCalYear(parsed.year); setCalMonth(parsed.month); }
+          setShowCalendar((open) => !open);
+        }}>
+          <Text style={[styles.dateText, !isValidDateISO(dateISO) && styles.datePlaceholder]}>
+            {isValidDateISO(dateISO) ? formatHumanDate(dateISO, today) : 'Tap to pick a date'}
+          </Text>
+        </Pressable>
+        {showCalendar ? (
+          <DateCalendar
+            year={calYear}
+            month={calMonth}
+            selectedISO={dateISO}
+            today={today}
+            onPrev={() => {
+              let y = calYear; let m = calMonth - 1;
+              if (m < 1) { m = 12; y -= 1; }
+              setCalYear(y); setCalMonth(m);
+            }}
+            onNext={() => {
+              let y = calYear; let m = calMonth + 1;
+              if (m > 12) { m = 1; y += 1; }
+              setCalYear(y); setCalMonth(m);
+            }}
+            onPick={(iso) => { setDateISO(iso); setError(''); setShowCalendar(false); }}
+          />
+        ) : null}
 
         <Text style={styles.label}>Type</Text>
         <View style={styles.row}>
@@ -163,6 +218,29 @@ export default function EventEditor({
         </View>
         {repeat === 'yearly' ? <Text style={styles.hint}>Feb 29 repeats on Feb 28 in non-leap years.</Text> : null}
         {repeat === 'monthly' ? <Text style={styles.hint}>Day 31 repeats on the last day of shorter months.</Text> : null}
+
+        <Text style={styles.label}>Photo</Text>
+        {photoUri ? (
+          <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
+        ) : (
+          <Text style={styles.hint}>Optional. Shown on the event and on Home.</Text>
+        )}
+        <View style={styles.row}>
+          <Pressable
+            style={styles.secondaryBtn}
+            onPress={async () => {
+              const uri = await pickSinglePhoto();
+              if (uri) setPhotoUri(uri);
+            }}
+          >
+            <Text style={styles.secondaryBtnText}>{photoUri ? 'Change photo' : 'Add photo'}</Text>
+          </Pressable>
+          {photoUri ? (
+            <Pressable style={styles.secondaryBtn} onPress={() => setPhotoUri(null)}>
+              <Text style={styles.secondaryBtnText}>Remove photo</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </>) : null}
 
       {step === 2 ? (<>
@@ -243,7 +321,7 @@ export default function EventEditor({
             {isValidDateISO(dateISO) ? countdownInfo(dateISO, type, repeat, todayISO()).label : '—'}
           </Text>
           <Text style={styles.previewTitle}>{title.trim() || 'Your event'}</Text>
-          <Text style={styles.previewMeta}>{dateISO || 'Pick a date in Step 1'}</Text>
+          <Text style={styles.previewMeta}>{isValidDateISO(dateISO) ? formatHumanDate(dateISO, today) : 'Pick a date first'}</Text>
         </View>
 
         <Text style={styles.label}>Colour</Text>
@@ -289,10 +367,12 @@ export default function EventEditor({
           ))}
         </View>
 
-        <Text style={styles.label}>Background photo (optional)</Text>
+        <Text style={styles.label}>Photo</Text>
         {photoUri ? (
-          <Image source={{ uri: photoUri }} style={styles.photo} />
-        ) : null}
+          <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
+        ) : (
+          <Text style={styles.hint}>Optional. Shown on the event and on Home.</Text>
+        )}
         <View style={styles.row}>
           <Pressable
             style={styles.secondaryBtn}
@@ -301,7 +381,7 @@ export default function EventEditor({
               if (uri) setPhotoUri(uri);
             }}
           >
-            <Text style={styles.secondaryBtnText}>{photoUri ? 'Change photo' : 'Pick a photo'}</Text>
+            <Text style={styles.secondaryBtnText}>{photoUri ? 'Change photo' : 'Add photo'}</Text>
           </Pressable>
           {photoUri ? (
             <Pressable style={styles.secondaryBtn} onPress={() => setPhotoUri(null)}>
@@ -316,7 +396,7 @@ export default function EventEditor({
         <Text style={styles.hint}>Tap Back to change anything.</Text>
         <View style={styles.reviewCard}>
           <Text style={styles.reviewBig}>{title.trim() || '(no title yet)'}</Text>
-          <Text style={styles.reviewLine}>{dateISO} · {type === 'countdown' ? 'Countdown' : 'Day counting'} · {repeat === 'none' ? 'Once' : repeat}</Text>
+          <Text style={styles.reviewLine}>{isValidDateISO(dateISO) ? formatHumanDate(dateISO, today) : 'No date'} · {type === 'countdown' ? 'Countdown' : 'Day counting'} · {repeat === 'none' ? 'Once' : repeat}</Text>
           <Text style={styles.reviewLine}>{category} · {relationship}</Text>
           {contactName ? <Text style={styles.reviewLine}>Contact: {contactName}</Text> : null}
           {notes.trim() ? <Text style={styles.reviewLine}>Notes: {notes.trim()}</Text> : null}
@@ -331,17 +411,31 @@ export default function EventEditor({
       </>) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {step < 4 ? (
-        <Pressable style={styles.primaryBtn} onPress={nextStep}>
-          <Text style={styles.primaryBtnText}>Continue →</Text>
-        </Pressable>
+      {step === 1 ? (
+        <>
+          <Pressable style={styles.primaryBtn} onPress={save}>
+            <Text style={styles.primaryBtnText}>Save event</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryBtnFull} onPress={nextStep}>
+            <Text style={styles.secondaryBtnText}>Add details</Text>
+          </Pressable>
+        </>
+      ) : step < 4 ? (
+        <>
+          <Pressable style={styles.primaryBtn} onPress={nextStep}>
+            <Text style={styles.primaryBtnText}>Continue</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryBtnFull} onPress={save}>
+            <Text style={styles.secondaryBtnText}>Save event</Text>
+          </Pressable>
+        </>
       ) : (
         <Pressable style={styles.primaryBtn} onPress={save}>
           <Text style={styles.primaryBtnText}>Save event</Text>
         </Pressable>
       )}
       <Pressable style={styles.secondaryBtnFull} onPress={backStep}>
-        <Text style={styles.secondaryBtnText}>{step > 1 ? '‹ Back' : 'Cancel'}</Text>
+        <Text style={styles.secondaryBtnText}>{step > startStep || initial ? 'Back' : 'Cancel'}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -357,6 +451,8 @@ const styles = StyleSheet.create({
   hint: { fontFamily: fonts.jakartaMedium, fontSize: 13, color: colors.onSurfaceVariant, marginTop: 6, lineHeight: 18 },
   label: { fontFamily: fonts.jakartaBold, fontSize: 12, color: colors.onSurface, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 16 },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 16, marginTop: 8 },
+  dateText: { color: colors.onSurface, fontFamily: fonts.jakartaMedium, fontSize: 16 },
+  datePlaceholder: { color: colors.onSurfaceVariant },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   chip: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.surface },
   chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },

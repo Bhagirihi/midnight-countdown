@@ -3,7 +3,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0F0F11",
-        "foregroundImage": "./assets/adaptive-icon.png"
+        "foregroundImage": "./assets/icon.png"
       },
       "package": "com.adayaway.app"
     },
@@ -19,7 +19,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0F0F11",
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/icon.png",
           "resizeMode": "contain"
         }
       ],
