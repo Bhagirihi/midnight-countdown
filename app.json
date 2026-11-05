@@ -148,6 +148,29 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.adayaway.app.ExpoWidgetsTarget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.adayaway.app"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "c22cbc76-13c1-4154-974c-b9bf6f467d34"
+      }
+    },
+    "owner": "takeyshi"
   }
 }
